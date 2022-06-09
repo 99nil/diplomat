@@ -1,0 +1,103 @@
+// Copyright © 2022 99nil.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package watchsched
+
+import (
+	"context"
+	"time"
+
+	"github.com/99nil/diplomat/pkg/logr"
+	"github.com/99nil/gopkg/sets"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
+)
+
+type Interface interface {
+	Run(ctx context.Context) error
+}
+
+type Engine struct {
+	kubeClient        kubernetes.Interface
+	informerFactory   dynamicinformer.DynamicSharedInformerFactory
+	eventHandlerFuncs cache.ResourceEventHandlerFuncs
+	set               sets.String
+}
+
+func New(
+	kubeClient kubernetes.Interface,
+	dynamicClient dynamic.Interface,
+	eventHandlerFuncs cache.ResourceEventHandlerFuncs,
+) Interface {
+	informerFactory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0)
+	return &Engine{
+		kubeClient:        kubeClient,
+		informerFactory:   informerFactory,
+		set:               sets.NewString(),
+		eventHandlerFuncs: eventHandlerFuncs,
+	}
+}
+
+func (e *Engine) Run(ctx context.Context) error {
+	ticker := time.NewTicker(time.Minute)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			gvkSet, err := e.resourceSchedule()
+			if err != nil {
+				logr.Errorf("resource schedule failed: %v", err)
+			}
+			e.run(ctx, gvkSet)
+		}
+	}
+}
+
+func (e *Engine) run(ctx context.Context, gvkSet map[schema.GroupVersionKind]struct{}) {
+	for gvk := range gvkSet {
+		plural, _ := meta.UnsafeGuessKindToResource(gvk)
+		e.informerFactory.ForResource(plural).Informer().AddEventHandler(e.eventHandlerFuncs)
+	}
+	e.informerFactory.Start(ctx.Done())
+}
+
+func (e *Engine) resourceSchedule() (map[schema.GroupVersionKind]struct{}, error) {
+	resources, err := e.kubeClient.Discovery().ServerPreferredResources()
+	if err != nil {
+		return nil, err
+	}
+
+	noSet := make(map[schema.GroupVersionKind]struct{})
+	for _, v := range resources {
+		vk := v.GroupVersionKind()
+		for _, vv := range v.APIResources {
+			gvk := schema.GroupVersionKind{
+				Group:   vk.Group,
+				Version: vk.Version,
+				Kind:    vv.Kind,
+			}
+			gvkStr := gvk.String()
+			if !e.set.Has(gvkStr) {
+				noSet[gvk] = struct{}{}
+				e.set.Add(gvkStr)
+			}
+		}
+	}
+	return noSet, nil
+}
