@@ -159,6 +159,8 @@ func (ds *dataSet) Del(ctx context.Context, uids ...suid.UID) error {
 	return nil
 }
 
+func (ds *dataSet) RangeUID(f func(uid suid.UID) bool) {}
+
 func (ds *dataSet) SyncManifest(ctx context.Context, manifest *suid.AssembleManifest) {
 	ds.mux.Lock()
 	defer ds.mux.Unlock()

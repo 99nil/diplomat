@@ -19,6 +19,8 @@ import (
 	"os"
 	"strings"
 
+	"k8s.io/client-go/util/flowcontrol"
+
 	mgtServer "github.com/99nil/diplomat/core/mgt/server"
 	"github.com/99nil/diplomat/global/constants"
 	"github.com/99nil/diplomat/pkg/k8s"
@@ -53,6 +55,7 @@ func NewMgtServer() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("init kubernetes rest config failed: %v", err)
 			}
+			restConfig.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(1000, 1000)
 			kubeClient, err := kubernetes.NewForConfig(restConfig)
 			if err != nil {
 				return fmt.Errorf("init kubernetes client failed: %v", err)

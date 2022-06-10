@@ -20,7 +20,6 @@ import (
 
 	"github.com/99nil/diplomat/pkg/logr"
 	"github.com/99nil/gopkg/sets"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -34,6 +33,7 @@ type Interface interface {
 
 type Engine struct {
 	kubeClient        kubernetes.Interface
+	dynamicClient     dynamic.Interface
 	informerFactory   dynamicinformer.DynamicSharedInformerFactory
 	eventHandlerFuncs cache.ResourceEventHandlerFuncs
 	set               sets.String
@@ -50,52 +50,61 @@ func New(
 		informerFactory:   informerFactory,
 		set:               sets.NewString(),
 		eventHandlerFuncs: eventHandlerFuncs,
+		dynamicClient:     dynamicClient,
 	}
 }
 
 func (e *Engine) Run(ctx context.Context) error {
+	e.run(ctx)
+
 	ticker := time.NewTicker(time.Minute)
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			gvkSet, err := e.resourceSchedule()
-			if err != nil {
-				logr.Errorf("resource schedule failed: %v", err)
-			}
-			e.run(ctx, gvkSet)
+			e.run(ctx)
 		}
 	}
 }
 
-func (e *Engine) run(ctx context.Context, gvkSet map[schema.GroupVersionKind]struct{}) {
-	for gvk := range gvkSet {
-		plural, _ := meta.UnsafeGuessKindToResource(gvk)
-		e.informerFactory.ForResource(plural).Informer().AddEventHandler(e.eventHandlerFuncs)
+func (e *Engine) run(ctx context.Context) {
+	gvrSet, err := e.resourceSchedule()
+	if err != nil {
+		logr.Errorf("resource schedule failed: %v", err)
+	}
+	for gvr := range gvrSet {
+		e.informerFactory.ForResource(gvr).Informer().AddEventHandler(e.eventHandlerFuncs)
 	}
 	e.informerFactory.Start(ctx.Done())
 }
 
-func (e *Engine) resourceSchedule() (map[schema.GroupVersionKind]struct{}, error) {
+func (e *Engine) resourceSchedule() (map[schema.GroupVersionResource]struct{}, error) {
 	resources, err := e.kubeClient.Discovery().ServerPreferredResources()
 	if err != nil {
 		return nil, err
 	}
 
-	noSet := make(map[schema.GroupVersionKind]struct{})
+	noSet := make(map[schema.GroupVersionResource]struct{})
 	for _, v := range resources {
-		vk := v.GroupVersionKind()
+		gv, err := schema.ParseGroupVersion(v.GroupVersion)
+		if err != nil {
+			logr.Debugf("Skip resource schedule, GroupVersion(%s) parse failed: %v", v.GroupVersion, err)
+			continue
+		}
 		for _, vv := range v.APIResources {
-			gvk := schema.GroupVersionKind{
-				Group:   vk.Group,
-				Version: vk.Version,
-				Kind:    vv.Kind,
+			if UnWatchResourceSet.Has(vv.Kind) {
+				continue
 			}
-			gvkStr := gvk.String()
-			if !e.set.Has(gvkStr) {
-				noSet[gvk] = struct{}{}
-				e.set.Add(gvkStr)
+			gvr := schema.GroupVersionResource{
+				Group:    gv.Group,
+				Version:  gv.Version,
+				Resource: vv.Name,
+			}
+			key := gvr.String()
+			if !e.set.Has(key) {
+				noSet[gvr] = struct{}{}
+				e.set.Add(key)
 			}
 		}
 	}

@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package constants
+package watchsched
 
-const (
-	ProjectName   = "diplomat"
-	ProjectDomain = ProjectName + ".99nil.com"
-)
+import "github.com/99nil/gopkg/sets"
 
-const (
-	AnnotationRelateClusterRole = ProjectDomain + "/clusterrole"
-	AnnotationRelateRole        = ProjectDomain + "/role"
-)
+var UnWatchResourceSet = sets.String{
+	"TokenReview":              {},
+	"Binding":                  {},
+	"ComponentStatus":          {},
+	"LocalSubjectAccessReview": {},
+	"SelfSubjectRulesReview":   {},
+	"SubjectAccessReview":      {},
+	"SelfSubjectAccessReview":  {},
+}
