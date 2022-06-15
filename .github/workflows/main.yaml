@@ -6,6 +6,9 @@ on:
     tags:
   pull_request:
 
+env:
+  TAMP_DIR: "/tmp/.diplomat"
+
 jobs:
   check:
     name: Check Project
@@ -22,6 +25,15 @@ jobs:
 
       - name: Checkout Code
         uses: actions/checkout@v2
+
+      - name: Check Dependencies
+        run: |
+          mkdir -p $TAMP_DIR
+          cp go.mod $TAMP_DIR/go.mod
+          cp go.sum $TAMP_DIR/go.sum
+          go mod tidy
+          diff go.mod $TAMP_DIR/go.mod
+          diff go.sum $TAMP_DIR/go.sum
 
       - name: Install Dependencies
         run: go get -v -t -d ./...
