@@ -20,14 +20,25 @@ import (
 )
 
 type Config struct {
+	//nolint
 	lumberjack.Logger `json:",inline,squash"`
 
 	Level string `json:"level"` // info, warn, error, debug
 }
 
-type Interface = logger.UniversalFieldInterface
+type Interface interface {
+	logger.UniversalInterface
 
-var std Interface
+	Level() LevelType
+	WithField(key string, val interface{}) Interface
+	WithFields(fields map[string]interface{}) Interface
+}
+
+var std Interface = NewLogrusInstance(nil)
+
+func Level() LevelType {
+	return std.Level()
+}
 
 func SetDefault(l Interface) {
 	std = l

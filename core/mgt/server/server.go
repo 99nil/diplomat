@@ -19,33 +19,40 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-
-	"github.com/99nil/diplomat/pkg/nodeset"
-
-	"k8s.io/apimachinery/pkg/watch"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"github.com/99nil/diplomat/pkg/k8s/watchsched"
 	"github.com/99nil/diplomat/pkg/logr"
+	"github.com/99nil/diplomat/pkg/nodeset"
 	"github.com/99nil/diplomat/pkg/types"
 	"github.com/99nil/dsync"
+	badgerstorage "github.com/99nil/dsync/storage/badger"
 	"github.com/99nil/dsync/suid"
 	"github.com/99nil/gopkg/server"
 	"github.com/go-chi/chi"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
 func Run(cfg *Config, kubeClient kubernetes.Interface, dynamicClient dynamic.Interface) error {
-	ins := dsync.New()
+	storageClient, err := badgerstorage.New(cfg.Storage.Badger)
+	if err != nil {
+		return err
+	}
+
+	// TODO Need to support garbage collection
+	ins, err := dsync.New(
+		dsync.WithStorageOption(storageClient))
+	if err != nil {
+		return err
+	}
 	set := nodeset.New()
 
 	s := server.New(&cfg.Server)
-	s.Handler = NewRouter(kubeClient, ins, set)
+	s.Handler = NewRouter(cfg, kubeClient, ins, set)
 	s.WriteTimeout = 0
 	s.ReadTimeout = 0
 
@@ -64,10 +71,10 @@ func Run(cfg *Config, kubeClient kubernetes.Interface, dynamicClient dynamic.Int
 	return wg.Wait()
 }
 
-func NewRouter(kubeClient kubernetes.Interface, ins dsync.Interface, set nodeset.Interface) http.Handler {
+func NewRouter(cfg *Config, kubeClient kubernetes.Interface, ins dsync.Interface, set nodeset.Interface) http.Handler {
 	mux := chi.NewMux()
 	mux.Route("/api/v1", func(r chi.Router) {
-		r.Get("/manifest", manifest(kubeClient, ins, set))
+		r.Get("/manifest", manifest(cfg, kubeClient, ins, set))
 		r.Post("/data", data(ins))
 	})
 	return mux

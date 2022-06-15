@@ -15,21 +15,52 @@
 package server
 
 import (
+	"os"
+
+	"github.com/99nil/diplomat/pkg/logr"
+
+	badgerstorage "github.com/99nil/dsync/storage/badger"
+
 	"github.com/99nil/diplomat/pkg/k8s"
 	"github.com/99nil/gopkg/server"
 )
 
-type Config struct {
-	Server     server.Config `json:"server"`
-	Kubernetes *k8s.Config   `json:"kubernetes,omitempty"`
+func Environ(envPrefix string) *Config {
+	cfg := &Config{}
+	cfg.Server.Port = 3000
+	cfg.Instance.Name = os.Getenv("HOSTNAME")
+	instanceName := os.Getenv(envPrefix + "_INSTANCE_NAME")
+	if instanceName != "" {
+		cfg.Instance.Name = instanceName
+	}
+	return cfg
 }
 
-func (c Config) Complete() {
-	if c.Server.Port <= 0 {
-		c.Server.Port = 3000
+type Config struct {
+	Logger     logr.Config   `json:"logger,omitempty"`
+	Instance   Instance      `json:"instance,omitempty"`
+	Server     server.Config `json:"server,omitempty"`
+	Kubernetes *k8s.Config   `json:"kubernetes,omitempty"`
+	Storage    Storage       `json:"storage,omitempty"`
+}
+
+func (c *Config) Complete() {
+	// TODO When supporting multiple storage backends, we can remove this default setting.
+	if c.Storage.Badger == nil {
+		c.Storage.Badger = &badgerstorage.Config{
+			Path: "/tmp/diplomat/storage",
+		}
 	}
 }
 
-func (c Config) Validate() error {
+func (c *Config) Validate() error {
 	return nil
+}
+
+type Instance struct {
+	Name string `json:"name"`
+}
+
+type Storage struct {
+	Badger *badgerstorage.Config `json:"badger"`
 }

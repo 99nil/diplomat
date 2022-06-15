@@ -55,15 +55,13 @@ func New(
 }
 
 func (e *Engine) Run(ctx context.Context) error {
-	e.run(ctx)
-
-	ticker := time.NewTicker(time.Minute)
 	for {
+		e.run(ctx)
+
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-ticker.C:
-			e.run(ctx)
+		case <-time.After(time.Minute):
 		}
 	}
 }
@@ -77,6 +75,13 @@ func (e *Engine) run(ctx context.Context) {
 		e.informerFactory.ForResource(gvr).Informer().AddEventHandler(e.eventHandlerFuncs)
 	}
 	e.informerFactory.Start(ctx.Done())
+	syncMap := e.informerFactory.WaitForCacheSync(ctx.Done())
+
+	if logr.Level() == logr.DebugLevel {
+		for k, v := range syncMap {
+			logr.Debugf("sync state: %v, resource: %v ", v, k)
+		}
+	}
 }
 
 func (e *Engine) resourceSchedule() (map[schema.GroupVersionResource]struct{}, error) {

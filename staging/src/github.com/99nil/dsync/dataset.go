@@ -159,7 +159,27 @@ func (ds *dataSet) Del(ctx context.Context, uids ...suid.UID) error {
 	return nil
 }
 
-func (ds *dataSet) RangeUID(f func(uid suid.UID) bool) {}
+func (ds *dataSet) Range(ctx context.Context, fn func(item *Item) error) error {
+	return ds.dataSetOperation.Range(ctx, func(key, value []byte) error {
+		ksuid, err := suid.ParseKSUIDFromBytes(value)
+		if err != nil {
+			return err
+		}
+		uid := suid.NewWithCustom(ksuid, "")
+		return fn(&Item{UID: uid, Value: value})
+	})
+}
+
+func (ds *dataSet) RangeCustom(ctx context.Context, fn func(uid suid.UID) error) error {
+	return ds.customOperation.Range(ctx, func(key, value []byte) error {
+		ksuid, err := suid.ParseKSUIDFromBytes(value)
+		if err != nil {
+			return err
+		}
+		uid := suid.NewWithCustom(ksuid, string(value))
+		return fn(uid)
+	})
+}
 
 func (ds *dataSet) SyncManifest(ctx context.Context, manifest *suid.AssembleManifest) {
 	ds.mux.Lock()

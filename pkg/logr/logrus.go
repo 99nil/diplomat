@@ -22,13 +22,21 @@ import (
 
 func NewLogrusInstance(cfg *Config) *logrusInstance {
 	l := logrus.New()
-
-	lvl, err := logrus.ParseLevel(cfg.Level)
-	if err == nil {
-		l.SetLevel(lvl)
-	}
-	if strings.TrimSpace(cfg.Filename) != "" {
-		l.SetOutput(cfg)
+	if cfg != nil {
+		lvl, err := logrus.ParseLevel(cfg.Level)
+		if err == nil {
+			l.SetLevel(lvl)
+		}
+		if strings.TrimSpace(cfg.Filename) != "" {
+			l.SetOutput(cfg)
+		}
+		l.SetFormatter(&logrus.TextFormatter{
+			ForceColors:            true,
+			DisableLevelTruncation: true,
+			PadLevelText:           true,
+			FullTimestamp:          true,
+			TimestampFormat:        "2006/01/02 15:04:05",
+		})
 	}
 	entry := logrus.NewEntry(l)
 	return &logrusInstance{entry}
@@ -36,6 +44,10 @@ func NewLogrusInstance(cfg *Config) *logrusInstance {
 
 type logrusInstance struct {
 	*logrus.Entry
+}
+
+func (l *logrusInstance) Level() LevelType {
+	return l.Entry.Logger.Level.String()
 }
 
 func (l *logrusInstance) WithField(key string, val interface{}) Interface {

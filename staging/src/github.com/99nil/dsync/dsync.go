@@ -60,7 +60,7 @@ type Synchronizer interface {
 	Del(ctx context.Context, uids ...suid.UID) error
 
 	// Manifest gets a manifest that needs to be synchronized according to the UID
-	Manifest(ctx context.Context, uid suid.UID) (*suid.AssembleManifest, error)
+	Manifest(ctx context.Context, uid suid.UID, limit int) (*suid.AssembleManifest, error)
 
 	// Data gets the data items to be synchronized according to the manifest
 	Data(ctx context.Context, manifest *suid.AssembleManifest) ([]Item, error)
@@ -82,6 +82,14 @@ type DataSet interface {
 
 	// Del deletes data according to UIDs
 	Del(ctx context.Context, uids ...suid.UID) error
+
+	// Range calls fn sequentially for item present in the dataset.
+	// If fn returns error, range stops the iteration.
+	Range(ctx context.Context, fn func(item *Item) error) error
+
+	// RangeCustom calls fn sequentially for UID present in the dataset.
+	// If fn returns error, range stops the iteration.
+	RangeCustom(ctx context.Context, fn func(uid suid.UID) error) error
 
 	// SyncManifest syncs the manifest that needs to be executed
 	SyncManifest(ctx context.Context, manifest *suid.AssembleManifest)

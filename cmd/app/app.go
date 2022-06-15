@@ -19,6 +19,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/99nil/diplomat/pkg/logr"
+
 	"k8s.io/client-go/util/flowcontrol"
 
 	mgtServer "github.com/99nil/diplomat/core/mgt/server"
@@ -31,25 +33,29 @@ import (
 )
 
 type MgtServerOption struct {
-	Config string
+	EnvPrefix string
+	Config    string
 }
 
 func NewMgtServer() *cobra.Command {
-	prefix := constants.ProjectName + "_manage_server"
-	opt := &MgtServerOption{}
+	envPrefix := strings.ToUpper(constants.ProjectName + "_manage_server")
+	opt := &MgtServerOption{EnvPrefix: envPrefix}
 	cmd := &cobra.Command{
 		Use:          "mgt-server",
 		Short:        "Management Server",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := &mgtServer.Config{}
-			if err := server.ParseConfigWithEnv(opt.Config, cfg, strings.ToUpper(prefix)); err != nil {
+			cfg := mgtServer.Environ(opt.EnvPrefix)
+			if err := server.ParseConfigWithEnv(opt.Config, cfg, opt.EnvPrefix); err != nil {
 				return fmt.Errorf("parse config failed: %v", err)
 			}
 			cfg.Complete()
 			if err := cfg.Validate(); err != nil {
 				return fmt.Errorf("validate config failed: %v", err)
 			}
+			loggerIns := logr.NewLogrusInstance(&cfg.Logger)
+			logr.SetDefault(loggerIns)
+			logr.Infof("logger level: %v", logr.Level())
 
 			restConfig, err := k8s.NewRestConfig(cfg.Kubernetes)
 			if err != nil {
@@ -69,7 +75,7 @@ func NewMgtServer() *cobra.Command {
 		},
 	}
 
-	cfgPathEnv := os.Getenv(strings.ToUpper(prefix + "_config"))
+	cfgPathEnv := os.Getenv(opt.EnvPrefix + "_CONFIG")
 	if cfgPathEnv == "" {
 		cfgPathEnv = "config/config.yaml"
 	}

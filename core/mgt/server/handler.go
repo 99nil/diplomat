@@ -17,6 +17,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -30,12 +31,18 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func manifest(kubeClient kubernetes.Interface, ins dsync.Interface, set nodeset.Interface) http.HandlerFunc {
+func manifest(
+	cfg *Config,
+	kubeClient kubernetes.Interface,
+	ins dsync.Interface,
+	set nodeset.Interface,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		nodeName := r.Header.Get("node")
 		state := r.Header.Get("state")
 		ctx := r.Context()
 
+		syncer := ins.Syncer(nodeName)
 		if !set.Has(nodeName) {
 			node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 			if err != nil {
@@ -44,7 +51,7 @@ func manifest(kubeClient kubernetes.Interface, ins dsync.Interface, set nodeset.
 			}
 
 			var keys []nodeset.Key
-			// 解析 node 关联的 clusterrole
+			// Resolve the ClusterRole associated with the node
 			clusterRoleStr, clusterRoleOK := node.Annotations[constants.AnnotationRelateClusterRole]
 			clusterRoles := strings.Split(clusterRoleStr, ",")
 			for _, roleName := range clusterRoles {
@@ -69,7 +76,7 @@ func manifest(kubeClient kubernetes.Interface, ins dsync.Interface, set nodeset.
 				}
 			}
 
-			// 解析 node 关联的 role
+			// Resolve the Role associated with the node
 			// namespace1: role1,rol2,rol3; namespace2: role1,role2
 			roleStr, roleOK := node.Annotations[constants.AnnotationRelateRole]
 			parts := strings.Split(roleStr, ";")
@@ -111,15 +118,32 @@ func manifest(kubeClient kubernetes.Interface, ins dsync.Interface, set nodeset.
 				keys = []nodeset.Key{nodeset.Any}
 			}
 			set.Set(nodeName, keys)
-			// TODO 获取所有符合的 UID 添加到该节点 manifest
-			// TODO dsync dateset 添加迭代方法，把所有关联关系获取到
+
+			// Get all matching UIDs and add them to the node manifest
+			var uids []suid.UID
+			err = ins.DataSet().RangeCustom(ctx, func(uid suid.UID) error {
+				uids = append(uids, uid)
+				return nil
+			})
+			if err != nil {
+				ctr.InternalError(w, err)
+				return
+			}
+			if err := syncer.Add(ctx, uids...); err != nil {
+				ctr.InternalError(w, err)
+				return
+			}
 		}
 
-		m, err := ins.Syncer(nodeName).Manifest(r.Context(), []byte(state))
+		m, err := syncer.Manifest(ctx, []byte(state), 100)
 		if err != nil {
 			ctr.InternalError(w, err)
 			return
 		}
+
+		// Proxy Server forwards requests according to the specified instance.
+		// So the agent must carry back this request header.
+		w.Header().Set(fmt.Sprintf("%s-mgt-server-instance", constants.ProjectName), cfg.Instance.Name)
 		ctr.OK(w, m)
 	}
 }
@@ -132,14 +156,58 @@ func data(ins dsync.Interface) http.HandlerFunc {
 			ctr.BadRequest(w, err)
 			return
 		}
+		logr.Debugf("events: stream started, node: %s", nodeName)
 
-		// TODO 通过 SSE 获取资源接口
-		// TODO 需要限制返回的 items 数量，循环判断是否获取完毕，一次性返回过多容易导致崩溃
-		items, err := ins.Syncer(nodeName).Data(r.Context(), &m)
-		if err != nil {
-			ctr.InternalError(w, err)
+		// 需要限制返回的 items 数量，循环判断是否获取完毕，一次性返回过多容易导致崩溃
+		num := 0
+		current := suid.NewManifest()
+		var ms []suid.AssembleManifest
+		for iter := m.Iter(); iter.Next(); num++ {
+			current.Append(iter.KSUID)
+			// TODO number limit can be config
+			if num > 10 {
+				num = 0
+				ms = append(ms, *current)
+				current = suid.NewManifest()
+			}
+		}
+
+		// Send data over SSE
+		h := w.Header()
+		h.Set("Content-Type", "text/event-stream")
+		h.Set("Cache-Control", "no-cache")
+		h.Set("Connection", "keep-alive")
+		h.Set("X-Accel-Buffering", "no")
+
+		f, ok := w.(http.Flusher)
+		if !ok {
 			return
 		}
-		ctr.OK(w, items)
+		_, _ = w.Write([]byte(": ping\n\n"))
+		f.Flush()
+
+		for _, v := range ms {
+			items, err := ins.Syncer(nodeName).Data(r.Context(), &v)
+			if err != nil {
+				errStr := fmt.Sprintf("events: get sync data failed, node: %s, error: %s", nodeName, err)
+				logr.Error(errStr)
+				_, _ = io.WriteString(w, fmt.Sprintf("event: error\ndata: %s\n\n", errStr))
+				return
+			}
+			b, err := json.Marshal(items)
+			if err != nil {
+				errStr := fmt.Sprintf("events: marshal sync data failed, node: %s, error: %s", nodeName, err)
+				logr.Error(errStr)
+				_, _ = io.WriteString(w, fmt.Sprintf("event: error\ndata: %s\n\n", errStr))
+				return
+			}
+			_, _ = w.Write([]byte("data: "))
+			_, _ = w.Write(b)
+			_, _ = w.Write([]byte("\n\n"))
+			f.Flush()
+		}
+		_, _ = w.Write([]byte("event: error\ndata: eof\n\n"))
+		f.Flush()
+		logr.Debugf("events: stream closed, node: %s", nodeName)
 	}
 }

@@ -30,30 +30,7 @@ type Interface interface {
 	// Clear clears all data in the specified space
 	Clear(ctx context.Context, space string) error
 
-	// Iterator returns a storage iterator according to the space
-	Iterator(ctx context.Context, space string) Iterator
-}
-
-// Iterator defines a data iterator interface
-type Iterator interface {
-	// Next would advance the iterator by one.
-	// Always check it.Error() after a Next() to ensure the iterator is working properly,
-	// and you have access to a valid it.Value().
-	Next() bool
-
-	// Error returns an error when an error occurs in the iterator execution.
-	Error() error
-
-	// Value returns pointer to the current key-value pair.
-	// This value is only valid until it.Next() gets called.
-	Value() *KV
-
-	// Close would close the iterator.
-	// It is important to call this when you're done with iteration.
-	Close() error
-}
-
-type KV struct {
-	Key   []byte
-	Value []byte
+	// Range calls fn sequentially for each key and value present in the storage.
+	// If fn returns error, range stops the iteration.
+	Range(ctx context.Context, space string, fn func(key, value []byte) error) error
 }
