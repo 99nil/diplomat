@@ -59,3 +59,8 @@ func (l *logrusInstance) WithFields(fields map[string]interface{}) Interface {
 	entry := l.Entry.WithFields(fields)
 	return &logrusInstance{entry}
 }
+
+func (l *logrusInstance) WithError(err error) Interface {
+	entry := l.Entry.WithField("error", err)
+	return &logrusInstance{entry}
+}

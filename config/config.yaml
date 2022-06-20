@@ -5,3 +5,7 @@ kubernetes:
   skip_tls: true
 logger:
   level: debug
+server:
+  host: http://localhost:3000
+agent:
+  name: node-70-35

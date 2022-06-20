@@ -16,21 +16,29 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
+	"time"
+
+	"github.com/99nil/diplomat/pkg/sse"
+
+	v1 "github.com/99nil/diplomat/pkg/api/v1"
 
 	"github.com/99nil/diplomat/pkg/k8s/watchsched"
 	"github.com/99nil/diplomat/pkg/logr"
 	"github.com/99nil/diplomat/pkg/nodeset"
 	"github.com/99nil/diplomat/pkg/types"
+	"github.com/99nil/diplomat/pkg/util"
 	"github.com/99nil/dsync"
 	badgerstorage "github.com/99nil/dsync/storage/badger"
 	"github.com/99nil/dsync/suid"
 	"github.com/99nil/gopkg/server"
+
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -43,7 +51,6 @@ func Run(cfg *Config, kubeClient kubernetes.Interface, dynamicClient dynamic.Int
 		return err
 	}
 
-	// TODO Need to support garbage collection
 	ins, err := dsync.New(
 		dsync.WithStorageOption(storageClient))
 	if err != nil {
@@ -68,14 +75,22 @@ func Run(cfg *Config, kubeClient kubernetes.Interface, dynamicClient dynamic.Int
 		sched := watchsched.New(kubeClient, dynamicClient, eventHandlerFuncs)
 		return sched.Run(ctx)
 	})
+	wg.Go(func() error {
+		return DatasetGC(ctx, ins)
+	})
 	return wg.Wait()
 }
 
 func NewRouter(cfg *Config, kubeClient kubernetes.Interface, ins dsync.Interface, set nodeset.Interface) http.Handler {
 	mux := chi.NewMux()
+	mux.Use(
+		middleware.Recoverer,
+		middleware.Logger,
+	)
+
 	mux.Route("/api/v1", func(r chi.Router) {
 		r.Get("/manifest", manifest(cfg, kubeClient, ins, set))
-		r.Post("/data", data(ins))
+		r.Get("/data", sse.Wrap(data(ins)))
 	})
 	return mux
 }
@@ -103,26 +118,31 @@ func eventOperate(
 		logr.Warnf("Parse as *unstructured.Unstructured failed, ignore. Type: %T", obj)
 		return
 	}
+	objectBytes, err := object.MarshalJSON()
+	if err != nil {
+		logr.WithError(err).Warnf("Marshal *unstructured.Unstructured failed, ignore")
+		return
+	}
 
 	gvk := object.GroupVersionKind()
 	namespace := object.GetNamespace()
 	metaKey := types.NewMeta(gvk.Group, gvk.Version, gvk.Kind, namespace, object.GetName(), object.GetResourceVersion())
 
 	uid := suid.NewByCustom(metaKey.String())
-	event := watch.Event{
-		Type:   eventType,
-		Object: object,
+	event := v1.Event{
+		Type: eventType,
+		Data: objectBytes,
 	}
 	jsonBytes, err := json.Marshal(event)
 	if err != nil {
-		logr.Errorf("Marshal JSON from event failed: %v", err)
+		logr.WithError(err).Error("Marshal JSON from event failed")
 		return
 	}
 	if err := ins.DataSet().Add(ctx, dsync.Item{
 		UID:   uid,
 		Value: jsonBytes,
 	}); err != nil {
-		logr.Errorf("Add uid(%s) to dateset failed: %v", uid.CustomUID(), err)
+		logr.WithError(err).WithField("uid", uid.CustomUID()).Errorf("Add uid to dateset failed")
 		return
 	}
 
@@ -136,7 +156,50 @@ func eventOperate(
 	allNodes := nodes.Union(rootNodes)
 	for k := range allNodes {
 		if err := ins.Syncer(k).Add(ctx, uid); err != nil {
-			logr.Errorf("Add uid(%s) to node(%s) manifest failed: %v", uid.CustomUID(), k, err)
+			logr.WithError(err).WithFields(map[string]interface{}{
+				"uid":  uid.CustomUID(),
+				"node": k,
+			}).Error("Add uid to node manifest failed")
+		}
+	}
+}
+
+// DatasetGC runs the dataset garbage collection
+func DatasetGC(ctx context.Context, ins dsync.Interface) error {
+	records := make(map[string]string)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(time.Minute * 30):
+		}
+
+		err := ins.DataSet().RangeCustom(ctx, func(uid suid.UID) error {
+			key := uid.CustomUID()
+			metaKey, err := types.ParseMetaStr(key)
+			if err != nil {
+				logr.WithError(err).WithField("key", key).Error("DataSet GC, parse meta key failed")
+				// Need to continue garbage collection, so don't exit.
+				return nil
+			}
+			rv, ok := records[metaKey.NameString()]
+			if !ok {
+				records[metaKey.NameString()] = metaKey.ResourceVersion
+				return nil
+			}
+			if util.CompareResourceVersion(rv, metaKey.ResourceVersion) < 0 {
+				records[metaKey.NameString()] = metaKey.ResourceVersion
+				return nil
+			}
+
+			if err := ins.DataSet().Del(ctx, uid); err != nil {
+				logr.WithError(err).WithField("key", key).Error("DataSet GC, delete data failed")
+				// Need to continue garbage collection, so don't exit.
+			}
+			return nil
+		})
+		if err != nil {
+			logr.WithError(err).Error("DataSet GC, Range failed")
 		}
 	}
 }

@@ -20,6 +20,7 @@ import (
 
 	"github.com/99nil/diplomat/pkg/logr"
 	"github.com/99nil/gopkg/sets"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"

@@ -16,10 +16,12 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
+
+	"github.com/99nil/diplomat/pkg/sse"
 
 	"github.com/99nil/diplomat/global/constants"
 	"github.com/99nil/diplomat/pkg/logr"
@@ -38,9 +40,13 @@ func manifest(
 	set nodeset.Interface,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		nodeName := r.Header.Get("node")
-		state := r.Header.Get("state")
 		ctx := r.Context()
+		state := r.Header.Get("state")
+		nodeName := r.Header.Get("node")
+		if nodeName == "" {
+			ctr.BadRequest(w, errors.New("node name not found"))
+			return
+		}
 
 		syncer := ins.Syncer(nodeName)
 		if !set.Has(nodeName) {
@@ -136,7 +142,7 @@ func manifest(
 		}
 
 		m, err := syncer.Manifest(ctx, []byte(state), 100)
-		if err != nil {
+		if err != nil && err != dsync.ErrEmptyManifest {
 			ctr.InternalError(w, err)
 			return
 		}
@@ -151,63 +157,58 @@ func manifest(
 func data(ins dsync.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		nodeName := r.Header.Get("node")
-		var m suid.AssembleManifest
-		if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
-			ctr.BadRequest(w, err)
+		if nodeName == "" {
+			sse.NewErrMessage("", "node name not found").Send(w)
 			return
 		}
 		logr.Debugf("events: stream started, node: %s", nodeName)
 
-		// 需要限制返回的 items 数量，循环判断是否获取完毕，一次性返回过多容易导致崩溃
+		manifestStr := r.Header.Get("manifest")
+		if strings.TrimSpace(manifestStr) == "" {
+			sse.NewErrMessage("", dsync.ErrEmptyManifest.Error()).Send(w)
+			return
+		}
+
+		var m suid.AssembleManifest
+		if err := json.Unmarshal([]byte(manifestStr), &m); err != nil {
+			sse.NewErrMessage("", fmt.Sprintf("unmarshal manifest failed: %v", err)).Send(w)
+			return
+		}
+
+		// It is necessary to limit the number of items returned,
+		// and loop to determine whether the acquisition is complete.
+		// Too many returns at one time can easily lead to crashes.
 		num := 0
 		current := suid.NewManifest()
 		var ms []suid.AssembleManifest
 		for iter := m.Iter(); iter.Next(); num++ {
 			current.Append(iter.KSUID)
-			// TODO number limit can be config
+			// TODO number limit to be configurable
 			if num > 10 {
 				num = 0
 				ms = append(ms, *current)
 				current = suid.NewManifest()
 			}
 		}
-
-		// Send data over SSE
-		h := w.Header()
-		h.Set("Content-Type", "text/event-stream")
-		h.Set("Cache-Control", "no-cache")
-		h.Set("Connection", "keep-alive")
-		h.Set("X-Accel-Buffering", "no")
-
-		f, ok := w.(http.Flusher)
-		if !ok {
-			return
+		if num > 0 {
+			ms = append(ms, *current)
 		}
-		_, _ = w.Write([]byte(": ping\n\n"))
-		f.Flush()
 
 		for _, v := range ms {
 			items, err := ins.Syncer(nodeName).Data(r.Context(), &v)
 			if err != nil {
-				errStr := fmt.Sprintf("events: get sync data failed, node: %s, error: %s", nodeName, err)
+				errStr := fmt.Sprintf("get sync data failed, node: %s, error: %s", nodeName, err)
 				logr.Error(errStr)
-				_, _ = io.WriteString(w, fmt.Sprintf("event: error\ndata: %s\n\n", errStr))
+				sse.NewErrMessage("", errStr).Send(w)
 				return
 			}
+
 			b, err := json.Marshal(items)
 			if err != nil {
-				errStr := fmt.Sprintf("events: marshal sync data failed, node: %s, error: %s", nodeName, err)
-				logr.Error(errStr)
-				_, _ = io.WriteString(w, fmt.Sprintf("event: error\ndata: %s\n\n", errStr))
 				return
 			}
-			_, _ = w.Write([]byte("data: "))
-			_, _ = w.Write(b)
-			_, _ = w.Write([]byte("\n\n"))
-			f.Flush()
+			sse.NewMessage("", "", string(b)).Send(w)
 		}
-		_, _ = w.Write([]byte("event: error\ndata: eof\n\n"))
-		f.Flush()
 		logr.Debugf("events: stream closed, node: %s", nodeName)
 	}
 }

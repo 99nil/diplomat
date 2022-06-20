@@ -25,7 +25,7 @@ import (
 func New(opts ...Option) (Interface, error) {
 	ins := newInstance(opts...)
 	if ins.storage == nil {
-		return nil, errors.New("dsync storage must exists")
+		return nil, errors.New("dsync storage must exist")
 	}
 	ins.dataSet = newDataSet(ins.name, ins.storage)
 	return ins, nil

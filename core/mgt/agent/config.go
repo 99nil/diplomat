@@ -12,57 +12,55 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package agent
 
 import (
+	"errors"
 	"os"
 
 	"github.com/99nil/diplomat/pkg/logr"
-
 	badgerstorage "github.com/99nil/dsync/storage/badger"
-
-	"github.com/99nil/diplomat/pkg/k8s"
-	"github.com/99nil/gopkg/server"
 )
 
 func Environ(envPrefix string) *Config {
 	cfg := &Config{}
-	cfg.Server.Port = 3000
-	cfg.Instance.Name = os.Getenv("HOSTNAME")
-	name := os.Getenv("HOST")
-	if cfg.Instance.Name == "" {
-		cfg.Instance.Name = name
-	}
-	name = os.Getenv(envPrefix + "_INSTANCE_NAME")
+	cfg.Agent.Name = os.Getenv("HOSTNAME")
+	name := os.Getenv(envPrefix + "_AGENT_NAME")
 	if name != "" {
-		cfg.Instance.Name = name
+		cfg.Agent.Name = name
 	}
 	return cfg
 }
 
 type Config struct {
-	Logger     logr.Config   `json:"logger,omitempty"`
-	Instance   Instance      `json:"instance,omitempty"`
-	Server     server.Config `json:"server,omitempty"`
-	Kubernetes *k8s.Config   `json:"kubernetes,omitempty"`
-	Storage    Storage       `json:"storage,omitempty"`
+	Logger  logr.Config  `json:"logger,omitempty"`
+	Agent   ConfigAgent  `json:"agent,omitempty"`
+	Server  ConfigServer `json:"server"`
+	Storage Storage      `json:"storage,omitempty"`
 }
 
 func (c *Config) Complete() {
 	// TODO When supporting multiple storage backends, we can remove this default setting.
 	if c.Storage.Badger == nil {
 		c.Storage.Badger = &badgerstorage.Config{
-			Path: "/tmp/diplomat/server/storage",
+			Path: "/tmp/diplomat/agent/storage",
 		}
 	}
 }
 
 func (c *Config) Validate() error {
+	if c.Server.Host == "" {
+		return errors.New("server.host must exist")
+	}
 	return nil
 }
 
-type Instance struct {
+type ConfigAgent struct {
 	Name string `json:"name"`
+}
+
+type ConfigServer struct {
+	Host string `json:"host" yaml:"host"`
 }
 
 type Storage struct {

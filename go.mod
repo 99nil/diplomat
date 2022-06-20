@@ -9,6 +9,7 @@ require (
 	github.com/99nil/gopkg v0.0.0-20220607055250-e19b23d7661a
 	github.com/go-chi/chi v1.5.4
 	github.com/natefinch/lumberjack v2.0.0+incompatible
+	github.com/r3labs/sse/v2 v2.8.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
@@ -70,6 +71,7 @@ require (
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
+	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect

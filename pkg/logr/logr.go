@@ -16,6 +16,7 @@ package logr
 
 import (
 	"github.com/99nil/gopkg/logger"
+
 	"github.com/natefinch/lumberjack"
 )
 
@@ -32,6 +33,7 @@ type Interface interface {
 	Level() LevelType
 	WithField(key string, val interface{}) Interface
 	WithFields(fields map[string]interface{}) Interface
+	WithError(err error) Interface
 }
 
 var std Interface = NewLogrusInstance(nil)
@@ -46,6 +48,10 @@ func SetDefault(l Interface) {
 
 func StdLogger() Interface {
 	return std
+}
+
+func WithError(err error) Interface {
+	return std.WithError(err)
 }
 
 func WithField(key string, val interface{}) Interface {

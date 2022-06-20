@@ -38,7 +38,6 @@ func New(cfg *Config) (*Client, error) {
 	var err error
 	options := badger.DefaultOptions(cfg.Path)
 	options.Logger = nil
-	options.BypassLockGuard = true
 	db, err := badger.Open(options)
 	if err != nil {
 		return nil, err
@@ -53,10 +52,6 @@ func NewWithDB(db *badger.DB) (*Client, error) {
 	}
 	client := &Client{db: db}
 	return client, nil
-}
-
-func (c *Client) test() {
-	c.db.DropPrefix()
 }
 
 func (c *Client) Close() error {

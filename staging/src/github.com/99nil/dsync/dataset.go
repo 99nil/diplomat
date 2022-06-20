@@ -124,7 +124,7 @@ func (ds *dataSet) Add(ctx context.Context, items ...Item) error {
 		if err := ds.dataSetOperation.Add(ctx, itemCurrent.String(), item.Value); err != nil {
 			return err
 		}
-		if item.UID.IsCustom() {
+		if isCustom {
 			// Add data first, if the association relationship fails,
 			// the orphaned data will be recovered by the GC soon
 			if err := ds.customOperation.Add(ctx, item.UID.CustomUID(), []byte(itemCurrent.String())); err != nil {
@@ -152,6 +152,11 @@ func (ds *dataSet) Del(ctx context.Context, uids ...suid.UID) error {
 	}
 
 	for _, uid := range uids {
+		if uid.IsCustom() {
+			if err := ds.customOperation.Del(ctx, uid.CustomUID()); err != nil {
+				return err
+			}
+		}
 		if err := ds.dataSetOperation.Del(ctx, uid.KSUID().String()); err != nil {
 			return err
 		}
@@ -182,6 +187,9 @@ func (ds *dataSet) RangeCustom(ctx context.Context, fn func(uid suid.UID) error)
 }
 
 func (ds *dataSet) SyncManifest(ctx context.Context, manifest *suid.AssembleManifest) {
+	if manifest == nil {
+		return
+	}
 	ds.mux.Lock()
 	defer ds.mux.Unlock()
 

@@ -12,19 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package watchsched
+package v1
 
-import "github.com/99nil/gopkg/sets"
+import "k8s.io/apimachinery/pkg/watch"
 
-var UnWatchResourceSet = sets.String{
-	"TokenReview":              {},
-	"Binding":                  {},
-	"ComponentStatus":          {},
-	"LocalSubjectAccessReview": {},
-	"SelfSubjectRulesReview":   {},
-	"SubjectAccessReview":      {},
-	"SelfSubjectAccessReview":  {},
-	"Lease":                    {},
-	"ControllerRevision":       {},
-	"APIService":               {},
+type Event struct {
+	Type watch.EventType
+	Data []byte
 }
