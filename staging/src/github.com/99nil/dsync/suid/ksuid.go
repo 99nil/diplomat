@@ -40,11 +40,19 @@ func NewKSUID() KSUID {
 }
 
 // CompareKSUID references Compare implementation.
+// Implements comparison for KSUID type
 func CompareKSUID(a KSUID, b KSUID) int {
 	return ksuid.Compare(a, b)
 }
 
 // ParseKSUID references Parse implementation.
+// Parse decodes a string-encoded representation of a KSUID object
 func ParseKSUID(s string) (KSUID, error) {
 	return ksuid.Parse(s)
+}
+
+// ParseKSUIDFromBytes references FromBytes implementation.
+// Constructs a KSUID from a 20-byte binary representation
+func ParseKSUIDFromBytes(b []byte) (KSUID, error) {
+	return ksuid.FromBytes(b)
 }

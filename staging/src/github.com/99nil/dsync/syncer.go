@@ -134,15 +134,26 @@ func (s *syncer) Del(ctx context.Context, uids ...suid.UID) error {
 	return s.setManifest(ctx, manifest)
 }
 
-func (s *syncer) Manifest(ctx context.Context, uid suid.UID) (*suid.AssembleManifest, error) {
+func (s *syncer) Manifest(ctx context.Context, uid suid.UID, limit int) (*suid.AssembleManifest, error) {
 	manifest, err := s.getManifest(ctx)
 	if err != nil {
 		return manifest, err
 	}
 
+	result := suid.NewManifest()
+	number := 0
+
 	current := uid.KSUID()
 	if current == suid.Nil {
-		return manifest, nil
+		for iter := manifest.Iter(); iter.Next(); {
+			keyUID := manifest.GetUID(iter.KSUID)
+			if limit > 0 && number >= limit {
+				break
+			}
+			result.AppendUID(keyUID)
+			number++
+		}
+		return result, nil
 	}
 
 	var (
@@ -157,7 +168,13 @@ func (s *syncer) Manifest(ctx context.Context, uid suid.UID) (*suid.AssembleMani
 		if !exists {
 			continue
 		}
-		set = append(set, manifest.GetUID(iter.KSUID))
+
+		keyUID := manifest.GetUID(iter.KSUID)
+		if limit <= 0 || number < limit {
+			result.AppendUID(keyUID)
+			number++
+		}
+		set = append(set, keyUID)
 	}
 
 	// If there is none or only uid itself, there is nothing to synchronize.
@@ -171,7 +188,7 @@ func (s *syncer) Manifest(ctx context.Context, uid suid.UID) (*suid.AssembleMani
 	if err := s.setManifest(ctx, manifest); err != nil {
 		return nil, err
 	}
-	return manifest, nil
+	return result, nil
 }
 
 func (s *syncer) Data(ctx context.Context, manifest *suid.AssembleManifest) ([]Item, error) {

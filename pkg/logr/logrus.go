@@ -22,13 +22,21 @@ import (
 
 func NewLogrusInstance(cfg *Config) *logrusInstance {
 	l := logrus.New()
-
-	lvl, err := logrus.ParseLevel(cfg.Level)
-	if err == nil {
-		l.SetLevel(lvl)
-	}
-	if strings.TrimSpace(cfg.Filename) != "" {
-		l.SetOutput(cfg)
+	if cfg != nil {
+		lvl, err := logrus.ParseLevel(cfg.Level)
+		if err == nil {
+			l.SetLevel(lvl)
+		}
+		if strings.TrimSpace(cfg.Filename) != "" {
+			l.SetOutput(cfg)
+		}
+		l.SetFormatter(&logrus.TextFormatter{
+			ForceColors:            true,
+			DisableLevelTruncation: true,
+			PadLevelText:           true,
+			FullTimestamp:          true,
+			TimestampFormat:        "2006/01/02 15:04:05",
+		})
 	}
 	entry := logrus.NewEntry(l)
 	return &logrusInstance{entry}
@@ -38,6 +46,10 @@ type logrusInstance struct {
 	*logrus.Entry
 }
 
+func (l *logrusInstance) Level() LevelType {
+	return l.Entry.Logger.Level.String()
+}
+
 func (l *logrusInstance) WithField(key string, val interface{}) Interface {
 	entry := l.Entry.WithField(key, val)
 	return &logrusInstance{entry}
@@ -45,5 +57,10 @@ func (l *logrusInstance) WithField(key string, val interface{}) Interface {
 
 func (l *logrusInstance) WithFields(fields map[string]interface{}) Interface {
 	entry := l.Entry.WithFields(fields)
+	return &logrusInstance{entry}
+}
+
+func (l *logrusInstance) WithError(err error) Interface {
+	entry := l.Entry.WithField("error", err)
 	return &logrusInstance{entry}
 }

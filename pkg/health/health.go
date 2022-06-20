@@ -12,19 +12,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package watchsched
+package health
 
-import "github.com/99nil/gopkg/sets"
+import "sync"
 
-var UnWatchResourceSet = sets.String{
-	"TokenReview":              {},
-	"Binding":                  {},
-	"ComponentStatus":          {},
-	"LocalSubjectAccessReview": {},
-	"SelfSubjectRulesReview":   {},
-	"SubjectAccessReview":      {},
-	"SelfSubjectAccessReview":  {},
-	"Lease":                    {},
-	"ControllerRevision":       {},
-	"APIService":               {},
+type Interface interface {
+	Check(state State) bool
+	Set(state State, ok bool)
+}
+
+func New() Interface {
+	return &Set{
+		list: make(map[State]bool),
+	}
+}
+
+type State int
+
+const (
+	_ State = iota
+	CloudState
+)
+
+type Set struct {
+	sync.Mutex
+
+	list map[State]bool
+}
+
+func (s *Set) Check(state State) bool {
+	s.Lock()
+	defer s.Unlock()
+	return s.list[state]
+}
+
+func (s *Set) Set(state State, ok bool) {
+	s.Lock()
+	defer s.Unlock()
+	s.list[state] = ok
 }

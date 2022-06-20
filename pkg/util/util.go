@@ -12,19 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package watchsched
+package util
 
-import "github.com/99nil/gopkg/sets"
+import (
+	"strconv"
+)
 
-var UnWatchResourceSet = sets.String{
-	"TokenReview":              {},
-	"Binding":                  {},
-	"ComponentStatus":          {},
-	"LocalSubjectAccessReview": {},
-	"SelfSubjectRulesReview":   {},
-	"SubjectAccessReview":      {},
-	"SelfSubjectAccessReview":  {},
-	"Lease":                    {},
-	"ControllerRevision":       {},
-	"APIService":               {},
+func ParseResourceVersion(resourceVersion string) uint64 {
+	if resourceVersion == "" || resourceVersion == "0" {
+		return 0
+	}
+	version, _ := strconv.ParseUint(resourceVersion, 10, 64)
+	return version
+}
+
+// CompareResourceVersion returns an integer comparing two resource version strings.
+// The result will be 0 if a == b, -1 if a < b, and +1 if a > b.
+func CompareResourceVersion(a, b string) int {
+	an := ParseResourceVersion(a)
+	bn := ParseResourceVersion(b)
+	if an == bn {
+		return 0
+	}
+	if an < bn {
+		return -1
+	}
+	return +1
 }

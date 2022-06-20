@@ -15,9 +15,9 @@
 package badger
 
 import (
+	"bytes"
 	"context"
 	"errors"
-	"time"
 
 	"github.com/99nil/dsync/storage"
 
@@ -38,13 +38,11 @@ func New(cfg *Config) (*Client, error) {
 	var err error
 	options := badger.DefaultOptions(cfg.Path)
 	options.Logger = nil
-	options.BypassLockGuard = true
 	db, err := badger.Open(options)
 	if err != nil {
 		return nil, err
 	}
 	client := &Client{db: db}
-	client.GC()
 	return client, nil
 }
 
@@ -58,24 +56,6 @@ func NewWithDB(db *badger.DB) (*Client, error) {
 
 func (c *Client) Close() error {
 	return c.db.Close()
-}
-
-func (c *Client) GC() {
-	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-		for {
-			<-ticker.C
-			for {
-				if c.db == nil || c.db.IsClosed() {
-					return
-				}
-				if err := c.db.RunValueLogGC(0.7); err != nil {
-					break
-				}
-			}
-		}
-	}()
 }
 
 func buildPrefix(space string) []byte {
@@ -128,14 +108,22 @@ func (c *Client) Clear(_ context.Context, space string) error {
 	return c.db.DropPrefix([]byte(space))
 }
 
-// TODO
-func (c *Client) Iterator(ctx context.Context, space string) storage.Iterator {
-	iter := NewClientIterator(nil)
-	err := c.db.View(func(txn *badger.Txn) error {
+func (c *Client) Range(_ context.Context, space string, fn func(key, value []byte) error) error {
+	return c.db.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
-		iter = NewClientIterator(it)
+		defer it.Close()
+
+		prefix := buildPrefix(space)
+		for it.Rewind(); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			k := bytes.TrimPrefix(item.Key(), prefix)
+			err := item.Value(func(v []byte) error {
+				return fn(k, v)
+			})
+			if err != nil {
+				return err
+			}
+		}
 		return nil
 	})
-	iter.err = err
-	return iter
 }

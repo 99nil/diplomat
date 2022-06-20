@@ -22,10 +22,13 @@ import (
 	"github.com/99nil/dsync/storage"
 )
 
-func New(opts ...Option) Interface {
+func New(opts ...Option) (Interface, error) {
 	ins := newInstance(opts...)
+	if ins.storage == nil {
+		return nil, errors.New("dsync storage must exist")
+	}
 	ins.dataSet = newDataSet(ins.name, ins.storage)
-	return ins
+	return ins, nil
 }
 
 type Option func(i *instance)

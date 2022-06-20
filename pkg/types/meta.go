@@ -37,6 +37,12 @@ func (m MetaKey) String() string {
 	return strings.Join([]string{apiVersion, kind, qualifiedName, m.ResourceVersion}, ",")
 }
 
+func (m MetaKey) NameString() string {
+	apiVersion, kind := m.ToAPIVersionAndKind()
+	qualifiedName := utilstrings.JoinQualifiedName(m.Namespace, m.Name)
+	return strings.Join([]string{apiVersion, kind, qualifiedName}, ",")
+}
+
 func (m *MetaKey) QualifiedName() string {
 	return utilstrings.JoinQualifiedName(m.Namespace, m.Name)
 }

@@ -12,19 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package watchsched
+package logr
 
-import "github.com/99nil/gopkg/sets"
+type LevelType = string
 
-var UnWatchResourceSet = sets.String{
-	"TokenReview":              {},
-	"Binding":                  {},
-	"ComponentStatus":          {},
-	"LocalSubjectAccessReview": {},
-	"SelfSubjectRulesReview":   {},
-	"SubjectAccessReview":      {},
-	"SelfSubjectAccessReview":  {},
-	"Lease":                    {},
-	"ControllerRevision":       {},
-	"APIService":               {},
-}
+const (
+	InfoLevel  LevelType = "info"
+	DebugLevel LevelType = "debug"
+)

@@ -1,0 +1,68 @@
+name: Main CI WorkFlow
+on:
+  push:
+    branches:
+      - main
+    tags:
+  pull_request:
+
+env:
+  TAMP_DIR: "/tmp/.diplomat"
+
+jobs:
+  check:
+    name: Check Project
+    strategy:
+      matrix:
+        go-version: [1.18.x]
+        platform: [ubuntu-18.04]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Check Dependencies
+        run: |
+          mkdir -p $TAMP_DIR
+          cp go.mod $TAMP_DIR/go.mod
+          cp go.sum $TAMP_DIR/go.sum
+          go mod tidy
+          diff go.mod $TAMP_DIR/go.mod
+          diff go.sum $TAMP_DIR/go.sum
+
+      - name: Install Dependencies
+        run: go get -v -t -d ./...
+
+      - name: Go Test
+        run: go test -v ./...
+
+      - name: Go Lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          skip-cache: true
+
+  build:
+    name: Build Project
+    strategy:
+      matrix:
+        go-version: [1.18.x]
+        platform: [ubuntu-18.04]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: |
+          CGO_ENABLED=0 go build -ldflags="-s -w" -installsuffix cgo -o output/mgt-server github.com/99nil/diplomat/cmd/mgt-server

@@ -25,6 +25,7 @@ type OperateInterface interface {
 	Get(ctx context.Context, key string) ([]byte, error)
 	Add(ctx context.Context, key string, value []byte) error
 	Del(ctx context.Context, key string) error
+	Range(ctx context.Context, fn func(key, value []byte) error) error
 
 	AddData(ctx context.Context, key string, data interface{}) error
 }
@@ -48,6 +49,10 @@ func (o *spaceOperation) Add(ctx context.Context, key string, value []byte) erro
 
 func (o *spaceOperation) Del(ctx context.Context, key string) error {
 	return o.storage.Del(ctx, o.name, key)
+}
+
+func (o *spaceOperation) Range(ctx context.Context, fn func(key, value []byte) error) error {
+	return o.storage.Range(ctx, o.name, fn)
 }
 
 func (o *spaceOperation) AddData(ctx context.Context, key string, data interface{}) error {

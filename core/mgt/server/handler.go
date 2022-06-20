@@ -16,9 +16,12 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/99nil/diplomat/pkg/sse"
 
 	"github.com/99nil/diplomat/global/constants"
 	"github.com/99nil/diplomat/pkg/logr"
@@ -30,12 +33,22 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func manifest(kubeClient kubernetes.Interface, ins dsync.Interface, set nodeset.Interface) http.HandlerFunc {
+func manifest(
+	cfg *Config,
+	kubeClient kubernetes.Interface,
+	ins dsync.Interface,
+	set nodeset.Interface,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		nodeName := r.Header.Get("node")
-		state := r.Header.Get("state")
 		ctx := r.Context()
+		state := r.Header.Get("state")
+		nodeName := r.Header.Get("node")
+		if nodeName == "" {
+			ctr.BadRequest(w, errors.New("node name not found"))
+			return
+		}
 
+		syncer := ins.Syncer(nodeName)
 		if !set.Has(nodeName) {
 			node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 			if err != nil {
@@ -44,7 +57,7 @@ func manifest(kubeClient kubernetes.Interface, ins dsync.Interface, set nodeset.
 			}
 
 			var keys []nodeset.Key
-			// 解析 node 关联的 clusterrole
+			// Resolve the ClusterRole associated with the node
 			clusterRoleStr, clusterRoleOK := node.Annotations[constants.AnnotationRelateClusterRole]
 			clusterRoles := strings.Split(clusterRoleStr, ",")
 			for _, roleName := range clusterRoles {
@@ -69,7 +82,7 @@ func manifest(kubeClient kubernetes.Interface, ins dsync.Interface, set nodeset.
 				}
 			}
 
-			// 解析 node 关联的 role
+			// Resolve the Role associated with the node
 			// namespace1: role1,rol2,rol3; namespace2: role1,role2
 			roleStr, roleOK := node.Annotations[constants.AnnotationRelateRole]
 			parts := strings.Split(roleStr, ";")
@@ -111,15 +124,32 @@ func manifest(kubeClient kubernetes.Interface, ins dsync.Interface, set nodeset.
 				keys = []nodeset.Key{nodeset.Any}
 			}
 			set.Set(nodeName, keys)
-			// TODO 获取所有符合的 UID 添加到该节点 manifest
-			// TODO dsync dateset 添加迭代方法，把所有关联关系获取到
+
+			// Get all matching UIDs and add them to the node manifest
+			var uids []suid.UID
+			err = ins.DataSet().RangeCustom(ctx, func(uid suid.UID) error {
+				uids = append(uids, uid)
+				return nil
+			})
+			if err != nil {
+				ctr.InternalError(w, err)
+				return
+			}
+			if err := syncer.Add(ctx, uids...); err != nil {
+				ctr.InternalError(w, err)
+				return
+			}
 		}
 
-		m, err := ins.Syncer(nodeName).Manifest(r.Context(), []byte(state))
-		if err != nil {
+		m, err := syncer.Manifest(ctx, []byte(state), 100)
+		if err != nil && err != dsync.ErrEmptyManifest {
 			ctr.InternalError(w, err)
 			return
 		}
+
+		// Proxy Server forwards requests according to the specified instance.
+		// So the agent must carry back this request header.
+		w.Header().Set(fmt.Sprintf("%s-mgt-server-instance", constants.ProjectName), cfg.Instance.Name)
 		ctr.OK(w, m)
 	}
 }
@@ -127,19 +157,58 @@ func manifest(kubeClient kubernetes.Interface, ins dsync.Interface, set nodeset.
 func data(ins dsync.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		nodeName := r.Header.Get("node")
-		var m suid.AssembleManifest
-		if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
-			ctr.BadRequest(w, err)
+		if nodeName == "" {
+			sse.NewErrMessage("", "node name not found").Send(w)
+			return
+		}
+		logr.Debugf("events: stream started, node: %s", nodeName)
+
+		manifestStr := r.Header.Get("manifest")
+		if strings.TrimSpace(manifestStr) == "" {
+			sse.NewErrMessage("", dsync.ErrEmptyManifest.Error()).Send(w)
 			return
 		}
 
-		// TODO 通过 SSE 获取资源接口
-		// TODO 需要限制返回的 items 数量，循环判断是否获取完毕，一次性返回过多容易导致崩溃
-		items, err := ins.Syncer(nodeName).Data(r.Context(), &m)
-		if err != nil {
-			ctr.InternalError(w, err)
+		var m suid.AssembleManifest
+		if err := json.Unmarshal([]byte(manifestStr), &m); err != nil {
+			sse.NewErrMessage("", fmt.Sprintf("unmarshal manifest failed: %v", err)).Send(w)
 			return
 		}
-		ctr.OK(w, items)
+
+		// It is necessary to limit the number of items returned,
+		// and loop to determine whether the acquisition is complete.
+		// Too many returns at one time can easily lead to crashes.
+		num := 0
+		current := suid.NewManifest()
+		var ms []suid.AssembleManifest
+		for iter := m.Iter(); iter.Next(); num++ {
+			current.Append(iter.KSUID)
+			// TODO number limit to be configurable
+			if num > 10 {
+				num = 0
+				ms = append(ms, *current)
+				current = suid.NewManifest()
+			}
+		}
+		if num > 0 {
+			ms = append(ms, *current)
+		}
+
+		for _, v := range ms {
+			items, err := ins.Syncer(nodeName).Data(r.Context(), &v)
+			if err != nil {
+				errStr := fmt.Sprintf("get sync data failed, node: %s, error: %s", nodeName, err)
+				logr.Error(errStr)
+				sse.NewErrMessage("", errStr).Send(w)
+				return
+			}
+
+			b, err := json.Marshal(items)
+			if err != nil {
+				return
+			}
+			sse.NewMessage("", "", string(b)).Send(w)
+		}
+		logr.Debugf("events: stream closed, node: %s", nodeName)
 	}
 }

@@ -16,40 +16,42 @@ package app
 
 import (
 	"fmt"
-	"os"
-	"strings"
 
-	"k8s.io/client-go/util/flowcontrol"
+	"github.com/99nil/gopkg/ctr"
 
+	mgtAgent "github.com/99nil/diplomat/core/mgt/agent"
 	mgtServer "github.com/99nil/diplomat/core/mgt/server"
-	"github.com/99nil/diplomat/global/constants"
 	"github.com/99nil/diplomat/pkg/k8s"
+	"github.com/99nil/diplomat/pkg/logr"
 	"github.com/99nil/gopkg/server"
+
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/flowcontrol"
 )
 
-type MgtServerOption struct {
-	Config string
-}
-
 func NewMgtServer() *cobra.Command {
-	prefix := constants.ProjectName + "_manage_server"
-	opt := &MgtServerOption{}
+	use := "mgt-server"
+	opt := NewOption(use)
 	cmd := &cobra.Command{
-		Use:          "mgt-server",
+		Use:          opt.Module,
 		Short:        "Management Server",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := &mgtServer.Config{}
-			if err := server.ParseConfigWithEnv(opt.Config, cfg, strings.ToUpper(prefix)); err != nil {
+			cfg := mgtServer.Environ(opt.EnvPrefix)
+			if err := server.ParseConfigWithEnv(opt.Config, cfg, opt.EnvPrefix); err != nil {
 				return fmt.Errorf("parse config failed: %v", err)
 			}
 			cfg.Complete()
 			if err := cfg.Validate(); err != nil {
 				return fmt.Errorf("validate config failed: %v", err)
 			}
+			loggerIns := logr.NewLogrusInstance(&cfg.Logger)
+			logr.SetDefault(loggerIns)
+			ctr.InitLogger(loggerIns)
+			logr.Infof("logger level: %v", logr.Level())
+			logr.Debugf("%#v", cfg)
 
 			restConfig, err := k8s.NewRestConfig(cfg.Kubernetes)
 			if err != nil {
@@ -69,29 +71,36 @@ func NewMgtServer() *cobra.Command {
 		},
 	}
 
-	cfgPathEnv := os.Getenv(strings.ToUpper(prefix + "_config"))
-	if cfgPathEnv == "" {
-		cfgPathEnv = "config/config.yaml"
-	}
-	cmd.Flags().StringVarP(&opt.Config, "config", "c", cfgPathEnv,
-		"config file (default is $HOME/config.yaml)")
+	opt.CompleteFlags(cmd)
 	return cmd
 }
 
 func NewMgtAgent() *cobra.Command {
+	use := "mgt-agent"
+	opt := NewOption(use)
 	cmd := &cobra.Command{
-		Use:          "mgt-agent",
+		Use:          opt.Module,
 		Short:        "Management Agent",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// TODO 解析配置
-			// TODO 校验配置
-			// TODO 启动 健康检查管理
-			// TODO 启动 同步服务，并通过 dsync manifest 同步数据到本地存储
-			// TODO 启动 APIServer（轻量化 k8s APIServer），供节点直接调用，获取本地存储中的资源，增/改/删 操作需要透传至云端
-			return nil
+			cfg := mgtAgent.Environ(opt.EnvPrefix)
+			if err := server.ParseConfigWithEnv(opt.Config, cfg, opt.EnvPrefix); err != nil {
+				return fmt.Errorf("parse config failed: %v", err)
+			}
+			cfg.Complete()
+			if err := cfg.Validate(); err != nil {
+				return fmt.Errorf("validate config failed: %v", err)
+			}
+			loggerIns := logr.NewLogrusInstance(&cfg.Logger)
+			logr.SetDefault(loggerIns)
+			logr.Infof("logger level: %v", logr.Level())
+			logr.Debugf("%#v", cfg)
+
+			return mgtAgent.Run(cfg)
 		},
 	}
+
+	opt.CompleteFlags(cmd)
 	return cmd
 }
 

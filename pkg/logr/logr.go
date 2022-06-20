@@ -16,18 +16,31 @@ package logr
 
 import (
 	"github.com/99nil/gopkg/logger"
+
 	"github.com/natefinch/lumberjack"
 )
 
 type Config struct {
+	//nolint
 	lumberjack.Logger `json:",inline,squash"`
 
 	Level string `json:"level"` // info, warn, error, debug
 }
 
-type Interface = logger.UniversalFieldInterface
+type Interface interface {
+	logger.UniversalInterface
 
-var std Interface
+	Level() LevelType
+	WithField(key string, val interface{}) Interface
+	WithFields(fields map[string]interface{}) Interface
+	WithError(err error) Interface
+}
+
+var std Interface = NewLogrusInstance(nil)
+
+func Level() LevelType {
+	return std.Level()
+}
 
 func SetDefault(l Interface) {
 	std = l
@@ -35,6 +48,10 @@ func SetDefault(l Interface) {
 
 func StdLogger() Interface {
 	return std
+}
+
+func WithError(err error) Interface {
+	return std.WithError(err)
 }
 
 func WithField(key string, val interface{}) Interface {
