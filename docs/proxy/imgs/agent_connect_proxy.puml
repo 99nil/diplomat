@@ -2,9 +2,7 @@
 'https://plantuml.com/sequence-diagram
 
 Agent -> Proxy: 创建连接（通常为 TCP 长链接）
-Proxy -> ApiServer: 获取节点上所有存在的 POD 资源
-ApiServer -> Proxy: 返回目标节点上的所有 POD 资源
-Proxy --> ApiServer: 修改目标节点上所有 POD 资源的主机地址为该 Proxy 的IP值。
+Proxy -> ApiServer: 修改目标 Node 的 Address 的值为当前 Proxy 的 IP。
 Proxy -> Agent: 开始接收 日志、监控等数据。
 Agent -> Proxy: 发送 日志、监控等数据。
 Proxy -> OtherComponent: 实时记录相关数据。
