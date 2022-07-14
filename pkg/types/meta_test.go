@@ -21,7 +21,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	type args struct {
+	type fields struct {
 		group           string
 		version         string
 		kind            string
@@ -31,18 +31,18 @@ func TestNew(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		args args
-		want *MetaKey
+		name   string
+		fields fields
+		want   *MetaKey
 	}{
 		{
-			name: "default",
-			args: args{},
-			want: &MetaKey{},
+			name:   "default",
+			fields: fields{},
+			want:   &MetaKey{},
 		},
 		{
 			name: "set value",
-			args: args{
+			fields: fields{
 				group:           "apps",
 				version:         "v1",
 				kind:            "deployments",
@@ -64,7 +64,7 @@ func TestNew(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := tt.args
+			m := tt.fields
 			if got := NewMeta(m.group, m.version, m.kind, m.namespace, m.name, m.resourceVersion); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewMeta(...) = %v, want %v", got, tt.want)
 			}
