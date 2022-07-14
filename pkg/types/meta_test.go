@@ -21,25 +21,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	defaultMetaKey := MetaKey{
-		GroupVersionKind: schema.GroupVersionKind{},
-		Namespace:        "",
-		Name:             "",
-		ResourceVersion:  "",
-	}
-
-	setValueMetaKey := MetaKey{
-		GroupVersionKind: schema.GroupVersionKind{
-			Group:   "apps",
-			Version: "v1",
-			Kind:    "deployments",
-		},
-		Namespace:       "default",
-		Name:            "test",
-		ResourceVersion: "0",
-	}
-
-	type fields struct {
+	type args struct {
 		group           string
 		version         string
 		kind            string
@@ -48,26 +30,26 @@ func TestNew(t *testing.T) {
 		resourceVersion string
 	}
 
-	type args struct {
-		metaKey MetaKey
-	}
-
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   *MetaKey
+		name string
+		args args
+		want *MetaKey
 	}{
 		{
-			name:   "default",
-			fields: fields{},
-			args:   args{metaKey: defaultMetaKey},
-			want:   &MetaKey{},
+			name: "default",
+			args: args{},
+			want: &MetaKey{},
 		},
 		{
-			name:   "set value",
-			fields: fields{},
-			args:   args{metaKey: setValueMetaKey},
+			name: "set value",
+			args: args{
+				group:           "apps",
+				version:         "v1",
+				kind:            "deployments",
+				namespace:       "default",
+				name:            "test",
+				resourceVersion: "0",
+			},
 			want: &MetaKey{
 				GroupVersionKind: schema.GroupVersionKind{
 					Group:   "apps",
@@ -82,8 +64,8 @@ func TestNew(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := tt.args.metaKey
-			if got := NewMeta(m.Group, m.Version, m.Kind, m.Namespace, m.Name, m.ResourceVersion); !reflect.DeepEqual(got, tt.want) {
+			m := tt.args
+			if got := NewMeta(m.group, m.version, m.kind, m.namespace, m.name, m.resourceVersion); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewMeta(...) = %v, want %v", got, tt.want)
 			}
 		})
