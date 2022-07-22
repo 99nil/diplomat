@@ -1,0 +1,23 @@
+@startuml
+(*) --> "ApiServer"
+-->[Open the connection to some pods] "Request to proxy"
+-->[Search the always exist connection(Long TCP Connection) to agent]"The proxy request to agent"
+if (Connection find?) then(yes)
+--> "Return status [ProxySuccess]"
+note left
+If the proxy find agent success,
+it will proxy the traffic to target
+agent.
+endnote
+--> (*)
+else
+--> "Return status [ProxyFaild]"
+note right
+It means the agent has not create
+'Long TCP Connect' to proxy, so
+the proxy doesn't known how to find
+specify pods.
+endnote
+endif
+--> (*)
+@enduml

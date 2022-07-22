@@ -1,0 +1,20 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+actor user
+
+autonumber
+user -> ApiServer: 发起 logs 等请求。
+ApiServer <-> Proxy: 查找并请求到目标 Pod 资源的主机值。
+Proxy -> Proxy: 查找对应 POD 所在 Node 的 Agent 已经创建连接。
+Proxy <-> Agent: 将请求代理到目标 Agent 上。
+Agent <-> Pod : 请求重新处理到目标 POD 资源上。
+
+autonumber 1 "<font color=blue><b>伪连接 0  "
+ApiServer --> Pod: 请求处理
+Pod --> ApiServer: 结果返回
+
+autonumber 6
+ApiServer -> user: 结果返回
+
+@enduml
