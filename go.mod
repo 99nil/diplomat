@@ -14,6 +14,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
+	github.com/spf13/viper v1.12.0
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	k8s.io/client-go v0.24.1
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
@@ -71,7 +72,6 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.12.0 // indirect
 	github.com/subosito/gotenv v1.4.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect

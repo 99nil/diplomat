@@ -153,7 +153,7 @@ func (e *ProcessEngine) Start(ctx context.Context) error {
 func (e *ProcessEngine) Stop(ctx context.Context) error {
 	for _, cmd := range e.cmds {
 		if err := cmd.Process.Signal(os.Interrupt); err != nil {
-			return fmt.Errorf("stop process(%s) failed: %v", cmd.Process.Pid, err)
+			return fmt.Errorf("stop process(%d) failed: %v", cmd.Process.Pid, err)
 		}
 	}
 	return nil
