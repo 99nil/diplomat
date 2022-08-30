@@ -16,7 +16,7 @@
 ![部署模型](./imgs/model_deployment.png)
 
 所有 `Proxy` 均在云端，可以被 `ApiServer` 直接请求到。
-但是 `Agetn` 仅在 `Ndoe` 上存在，并且保证每个 `Node` 仅存在一个 `Agent`。
+但是 `Agent` 仅在 `Ndoe` 上存在，并且保证每个 `Node` 仅存在一个 `Agent`。
 
 `ApiServer` 在原生模型中通过 `Proxy` 直接与 `Node` 进行通信。
 在 **外交官** 中，我们通过一个额外的 `Agent` 与 `Node` 节点进行通信。
