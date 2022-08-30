@@ -180,5 +180,5 @@ func (e *ProcessEngine) Stats(ctx context.Context) ([]Stats, error) {
 			MemoryStats: memInfo.Data,
 		})
 	}
-	return nil, nil
+	return statsSet, nil
 }

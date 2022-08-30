@@ -60,7 +60,9 @@ func Run(cfg *Config, dockerClient *client.Client) error {
 		}
 
 		eg, ctx := errgroup.WithContext(ctx)
-		for name, e := range engineSet {
+		for k, v := range engineSet {
+			name := k
+			e := v
 			eg.Go(func() error {
 				stats, err := e.Stats(ctx)
 				if err != nil {
