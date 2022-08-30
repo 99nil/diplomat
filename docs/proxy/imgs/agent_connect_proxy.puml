@@ -1,0 +1,10 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+Agent -> Proxy: 创建连接（通常为 TCP 长链接）
+Proxy -> ApiServer: 修改目标 Node 的 Address 的值为当前 Proxy 的 IP。
+Proxy -> Agent: 开始接收 日志、监控等数据。
+Agent -> Proxy: 发送 日志、监控等数据。
+Proxy -> OtherComponent: 实时记录相关数据。
+
+@enduml

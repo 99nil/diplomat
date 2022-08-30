@@ -1,0 +1,27 @@
+@startuml
+
+cloud KubernetesComponent {
+    component ApiServer
+    component Proxy1
+    component Proxy...
+    component ProxyN
+
+    ApiServer --> Proxy1
+    ApiServer --> Proxy...
+    ApiServer --> ProxyN
+}
+node Node1{
+    agent Agent1
+}
+node Node... {
+    agent Agent...
+}
+node NodeN{
+    agent AgentN
+}
+
+Proxy1 --> Agent1 : "Long TCP Connection"
+Proxy1 --> AgentN
+ProxyN --> Agent...
+
+@enduml
