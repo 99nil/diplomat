@@ -17,18 +17,15 @@ package app
 import (
 	"fmt"
 
-	"github.com/docker/docker/client"
-
 	"github.com/99nil/diplomat/core/assistant"
-
-	"github.com/99nil/gopkg/ctr"
-
 	mgtAgent "github.com/99nil/diplomat/core/mgt/agent"
 	mgtServer "github.com/99nil/diplomat/core/mgt/server"
 	"github.com/99nil/diplomat/pkg/k8s"
 	"github.com/99nil/diplomat/pkg/logr"
+	"github.com/99nil/gopkg/ctr"
 	"github.com/99nil/gopkg/server"
 
+	"github.com/docker/docker/client"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
