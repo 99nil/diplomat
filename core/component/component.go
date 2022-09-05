@@ -12,15 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package assistant
+package component
 
-import (
-	dockerclient "github.com/docker/docker/client"
-)
+import "context"
 
-func Run(cfg *Config, dockerClient *dockerclient.Client) error {
-	// TODO 支持插件的升级及重启
-	// TODO 支持自升级
-	// TODO 监听插件的健康状态
-	return nil
+type Interface interface {
+	Install(ctx context.Context) error
+	Uninstall(ctx context.Context) error
 }
