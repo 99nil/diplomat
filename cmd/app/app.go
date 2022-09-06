@@ -17,19 +17,55 @@ package app
 import (
 	"fmt"
 
-	"github.com/99nil/gopkg/ctr"
-
+	"github.com/99nil/diplomat/core/assistant"
 	mgtAgent "github.com/99nil/diplomat/core/mgt/agent"
 	mgtServer "github.com/99nil/diplomat/core/mgt/server"
 	"github.com/99nil/diplomat/pkg/k8s"
 	"github.com/99nil/diplomat/pkg/logr"
+	"github.com/99nil/gopkg/ctr"
 	"github.com/99nil/gopkg/server"
 
+	"github.com/docker/docker/client"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/flowcontrol"
 )
+
+func NewAssistant() *cobra.Command {
+	use := "assistant"
+	opt := NewOption(use)
+	cmd := &cobra.Command{
+		Use:          opt.Module,
+		Short:        "Assistant",
+		SilenceUsage: true,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			cfg := assistant.Environ(opt.EnvPrefix)
+			if err := server.ParseConfigWithEnv(opt.Config, cfg, opt.EnvPrefix); err != nil {
+				return fmt.Errorf("parse config failed: %v", err)
+			}
+			cfg.Complete()
+			if err := cfg.Validate(); err != nil {
+				return fmt.Errorf("validate config failed: %v", err)
+			}
+			loggerIns := logr.NewLogrusInstance(&cfg.Logger)
+			logr.SetDefault(loggerIns)
+
+			logr.Infof("logger level: %v", logr.Level())
+			logr.Debugf("%#v", cfg)
+
+			dockerClient, err := client.NewClientWithOpts(client.FromEnv)
+			if err != nil {
+				return err
+			}
+
+			return assistant.Run(cfg, dockerClient)
+		},
+	}
+
+	opt.CompleteFlags(cmd)
+	return cmd
+}
 
 func NewMgtServer() *cobra.Command {
 	use := "mgt-server"
