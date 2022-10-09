@@ -15,12 +15,43 @@
 package assistant
 
 import (
+	"context"
+	"fmt"
+
+	"github.com/99nil/diplomat/core/component"
+	"github.com/99nil/diplomat/pkg/k8s"
+	"github.com/99nil/diplomat/static"
+
 	dockerclient "github.com/docker/docker/client"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 )
 
-func Run(cfg *Config, dockerClient *dockerclient.Client) error {
+func Run(cfg *Config,
+	dockerClient *dockerclient.Client,
+	kubeClient *kubernetes.Clientset,
+	dynamicClient dynamic.Interface) error {
+	resources, err := k8s.ParseAllYamlToObject(static.RavenYaml)
+	if err != nil {
+		return err
+	}
+	ri := component.RavenInstallTool{
+		Ctx:           context.Background(),
+		Resources:     resources,
+		KubeClient:    *kubeClient,
+		DynamicClient: dynamicClient,
+	}
+	ok, err := ri.PreInstall()
+	if err != nil {
+		return err
+	}
+
+	if !ok {
+		return fmt.Errorf("failed to install assistant, please check your network plugins whether it has been installed")
+	}
+
+	return ri.Install()
 	// TODO 支持插件的升级及重启
 	// TODO 支持自升级
 	// TODO 监听插件的健康状态
-	return nil
 }

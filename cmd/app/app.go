@@ -25,7 +25,6 @@ import (
 	"github.com/99nil/gopkg/ctr"
 	"github.com/99nil/gopkg/server"
 
-	"github.com/docker/docker/client"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -51,15 +50,29 @@ func NewAssistant() *cobra.Command {
 			loggerIns := logr.NewLogrusInstance(&cfg.Logger)
 			logr.SetDefault(loggerIns)
 
+			restConfig, err := k8s.NewRestConfig(cfg.Kubernetes)
+			if err != nil {
+				return fmt.Errorf("init kubernetes rest config failed: %v", err)
+			}
+			restConfig.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(1000, 1000)
+			kubeClient, err := kubernetes.NewForConfig(restConfig)
+			if err != nil {
+				return fmt.Errorf("init kubernetes client failed: %v", err)
+			}
+			dynamicClient, err := dynamic.NewForConfig(restConfig)
+			if err != nil {
+				return fmt.Errorf("init dynamic client failed: %v", err)
+			}
+
 			logr.Infof("logger level: %v", logr.Level())
 			logr.Debugf("%#v", cfg)
 
-			dockerClient, err := client.NewClientWithOpts(client.FromEnv)
-			if err != nil {
-				return err
-			}
+			//dockerClient, err := client.NewClientWithOpts(client.FromEnv)
+			//if err != nil {
+			//	return err
+			//}
 
-			return assistant.Run(cfg, dockerClient)
+			return assistant.Run(cfg, nil, kubeClient, dynamicClient)
 		},
 	}
 

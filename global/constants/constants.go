@@ -17,9 +17,15 @@ package constants
 const (
 	ProjectName   = "diplomat"
 	ProjectDomain = ProjectName + ".99nil.com"
+
+	DefaultNamespace = "diplomat"
 )
 
 const (
 	AnnotationRelateClusterRole = ProjectDomain + "/clusterrole"
 	AnnotationRelateRole        = ProjectDomain + "/role"
+)
+
+const (
+	CNIBinPath = "/opt/cni/bin"
 )

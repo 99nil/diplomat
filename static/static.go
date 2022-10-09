@@ -12,36 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package assistant
+package static
 
-import (
-	"github.com/99nil/diplomat/pkg/k8s"
-	"github.com/99nil/diplomat/pkg/logr"
-	"github.com/spf13/viper"
-)
+import "embed"
 
 const (
-	PartCloud = "cloud"
-	PartEdge  = "edge"
+	RavenYaml  = "resource/yaml/raven"
+	FlannelBin = "resource/binary/flannel"
 )
 
-func Environ(envPrefix string) *Config {
-	cfg := &Config{}
-	cfg.Part = PartCloud
-
-	viper.MustBindEnv("PART")
-	return cfg
-}
-
-type Config struct {
-	Kubernetes *k8s.Config `json:"kubernetes,omitempty"`
-	Logger     logr.Config `json:"logger,omitempty"`
-	Part       string      `json:"part"`
-}
-
-func (c *Config) Complete() {
-}
-
-func (c *Config) Validate() error {
-	return nil
-}
+// EmbedResource defines the resource directory
+//go:embed resource
+var EmbedResource embed.FS

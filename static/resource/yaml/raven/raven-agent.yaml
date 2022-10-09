@@ -1,0 +1,176 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: raven-agent-account
+  namespace: diplomat
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: raven-agent-role
+rules:
+- apiGroups:
+  - raven.openyurt.io
+  resources:
+  - gateways
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: raven-agent-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: diplomat-raven-agent-role
+subjects:
+- kind: ServiceAccount
+  name: raven-agent-account
+  namespace: diplomat
+---
+apiVersion: v1
+data:
+  vpn-driver: libreswan
+kind: ConfigMap
+metadata:
+  name: raven-agent-config
+  namespace: diplomat
+---
+apiVersion: v1
+data:
+  vpn-connection-psk: |
+    MDY0NjU0NTg4OGQwMmVkNzdiNThkMTJiNzI0NDMxMmY3OWYxMDY2Zjg5MWFmYWMzNWEwMW
+    ExOWMwMjQ3MjcxOTFiNmEyY2U5MTJiMjkzYTIzZjQ5YjNjZGQ1YmQxYjU2NDJiMmYwZmI3
+    OGU4MzIyYTFlNTE2OTNmOTZjOGZjODE=
+kind: Secret
+metadata:
+  name: raven-agent-secret
+  namespace: diplomat
+type: Opaque
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: raven-agent-edge-ds
+  namespace: diplomat
+spec:
+  selector:
+    matchLabels:
+      app: diplomat-raven-agent-edge
+  template:
+    metadata:
+      labels:
+        app: diplomat-raven-agent-edge
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: type
+                operator: NotIn
+                values:
+                - virtual-kubelet
+              - key: node-role.kubernetes.io/edge
+                operator: Exists
+              - key: node-role.kubernetes.io/agent
+                operator: Exists
+      containers:
+      - env:
+        - name: KUBERNETES_SERVICE_HOST
+          value: 127.0.0.1
+        - name: KUBERNETES_SERVICE_PORT
+          value: "10550"
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: VPN_CONNECTION_PSK
+          valueFrom:
+            secretKeyRef:
+              key: vpn-connection-psk
+              name: raven-agent-secret
+        - name: VPN_DRIVER
+          valueFrom:
+            configMapKeyRef:
+              key: vpn-driver
+              name: raven-agent-config
+        # TODO
+        image: a526102465/raven-agent:latest
+        imagePullPolicy: Always
+        name: diplomat-raven-agent-edge
+        securityContext:
+          privileged: true
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      serviceAccountName: raven-agent-account
+      tolerations:
+      - operator: Exists
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 5%
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: raven-agent-ds
+  namespace: diplomat
+spec:
+  selector:
+    matchLabels:
+      app: diplomat-raven-agent
+  template:
+    metadata:
+      labels:
+        app: diplomat-raven-agent
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: type
+                operator: NotIn
+                values:
+                - virtual-kubelet
+              - key: node-role.kubernetes.io/edge
+                operator: DoesNotExist
+              - key: node-role.kubernetes.io/agent
+                operator: DoesNotExist
+      containers:
+        - env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: VPN_CONNECTION_PSK
+              valueFrom:
+                secretKeyRef:
+                  key: vpn-connection-psk
+                  name: raven-agent-secret
+            - name: VPN_DRIVER
+              valueFrom:
+                configMapKeyRef:
+                  key: vpn-driver
+                  name: raven-agent-config
+          # TODO
+          image: a526102465/raven-agent:latest
+          imagePullPolicy: Always
+          name: diplomat-raven-agent
+          securityContext:
+            privileged: true
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      serviceAccountName: raven-agent-account
+      tolerations:
+        - operator: Exists
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 5%

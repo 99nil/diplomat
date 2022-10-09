@@ -12,36 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package assistant
+package util
 
 import (
-	"github.com/99nil/diplomat/pkg/k8s"
-	"github.com/99nil/diplomat/pkg/logr"
-	"github.com/spf13/viper"
+	"fmt"
+	"os"
 )
 
-const (
-	PartCloud = "cloud"
-	PartEdge  = "edge"
-)
-
-func Environ(envPrefix string) *Config {
-	cfg := &Config{}
-	cfg.Part = PartCloud
-
-	viper.MustBindEnv("PART")
-	return cfg
+func Exists(path string) bool {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+		return false
+	}
+	return true
 }
 
-type Config struct {
-	Kubernetes *k8s.Config `json:"kubernetes,omitempty"`
-	Logger     logr.Config `json:"logger,omitempty"`
-	Part       string      `json:"part"`
-}
-
-func (c *Config) Complete() {
-}
-
-func (c *Config) Validate() error {
+func ExistsAndCreateDir(path string) error {
+	f, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return os.MkdirAll(path, 0700)
+		}
+		return err
+	}
+	if !f.IsDir() {
+		return fmt.Errorf("path %s is not directory", path)
+	}
 	return nil
+}
+
+func IsDir(path string) bool {
+	s, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return s.IsDir()
+}
+
+func IsFile(path string) bool {
+	return !IsDir(path)
 }
