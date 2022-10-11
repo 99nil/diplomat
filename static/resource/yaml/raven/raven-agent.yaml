@@ -101,7 +101,7 @@ spec:
               key: vpn-driver
               name: raven-agent-config
         # TODO
-        image: a526102465/raven-agent:latest
+        image: a526102465/raven-agent:v0.0.1-diplomat
         imagePullPolicy: Always
         name: diplomat-raven-agent-edge
         securityContext:
@@ -160,7 +160,7 @@ spec:
                   key: vpn-driver
                   name: raven-agent-config
           # TODO
-          image: a526102465/raven-agent:latest
+          image: a526102465/raven-agent:v0.0.1-diplomat
           imagePullPolicy: Always
           name: diplomat-raven-agent
           securityContext:
