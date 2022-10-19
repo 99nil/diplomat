@@ -3,6 +3,8 @@ apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   name: psp.diplomat-flannel.unprivileged
+  labels:
+    diplomat: diplomat
   annotations:
     seccomp.security.alpha.kubernetes.io/allowedProfileNames: docker/default
     seccomp.security.alpha.kubernetes.io/defaultProfileName: docker/default
@@ -50,6 +52,8 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: diplomat-flannel
+  labels:
+    diplomat: diplomat
 rules:
 - apiGroups: ['extensions']
   resources: ['podsecuritypolicies']
@@ -80,6 +84,8 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: diplomat-flannel
+  labels:
+    diplomat: diplomat
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -94,6 +100,8 @@ kind: ServiceAccount
 metadata:
   name: flannel
   namespace: diplomat
+  labels:
+    diplomat: diplomat
 ---
 kind: ConfigMap
 apiVersion: v1
@@ -103,6 +111,7 @@ metadata:
   labels:
     tier: node
     app: diplomat-flannel
+    diplomat: diplomat
 data:
   cni-conf.json: |
     {
@@ -140,15 +149,18 @@ metadata:
   labels:
     tier: node
     app: diplomat-flannel
+    diplomat: diplomat
 spec:
   selector:
     matchLabels:
       app: diplomat-flannel
+      diplomat: diplomat
   template:
     metadata:
       labels:
         tier: node
         app: diplomat-flannel
+        diplomat: diplomat
     spec:
       affinity:
         nodeAffinity:
@@ -239,15 +251,18 @@ metadata:
   labels:
     tier: node
     app: diplomat-flannel-edge
+    diplomat: diplomat
 spec:
   selector:
     matchLabels:
       app: diplomat-flannel-edge
+      diplomat: diplomat
   template:
     metadata:
       labels:
         tier: node
         app: diplomat-flannel-edge
+        diplomat: diplomat
     spec:
       affinity:
         nodeAffinity:

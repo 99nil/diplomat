@@ -167,12 +167,16 @@ kind: ServiceAccount
 metadata:
   name: raven-controller-manager
   namespace: diplomat
+  labels:
+    diplomat: diplomat
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: raven-leader-election-role
   namespace: diplomat
+  labels:
+    diplomat: diplomat
 rules:
 - apiGroups:
   - ""
@@ -211,6 +215,8 @@ kind: ClusterRole
 metadata:
   creationTimestamp: null
   name: diplomat-raven-manager-role
+  labels:
+    diplomat: diplomat
 rules:
 - apiGroups:
   - admissionregistration.k8s.io
@@ -309,6 +315,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: diplomat-raven-metrics-reader
+  labels:
+    diplomat: diplomat
 rules:
 - nonResourceURLs:
   - /metrics
@@ -319,6 +327,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: diplomat-raven-proxy-role
+  labels:
+    diplomat: diplomat
 rules:
 - apiGroups:
   - authentication.k8s.io
@@ -338,6 +348,8 @@ kind: RoleBinding
 metadata:
   name: raven-leader-election-rolebinding
   namespace: diplomat
+  labels:
+    diplomat: diplomat
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -351,6 +363,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: diplomat-raven-manager-rolebinding
+  labels:
+    diplomat: diplomat
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -364,6 +378,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: diplomat-raven-proxy-rolebinding
+  labels:
+    diplomat: diplomat
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -378,6 +394,8 @@ kind: Secret
 metadata:
   name: raven-webhook-certs
   namespace: diplomat
+  labels:
+    diplomat: diplomat
 ---
 apiVersion: v1
 kind: Service
@@ -385,6 +403,7 @@ metadata:
   labels:
     app: raven-controller-manager
     control-plane: controller-manager
+    diplomat: diplomat
   name: raven-controller-manager-metrics-service
   namespace: diplomat
 spec:
@@ -400,7 +419,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: raven-webhook-service
-  namespace: diploma
+  namespace: diplomat
+  labels:
+    diplomat: diplomat
 spec:
   ports:
   - port: 443
@@ -415,6 +436,7 @@ metadata:
   labels:
     app: raven-controller-manager
     control-plane: controller-manager
+    diplomat: diplomat
   name: diplomat-raven-controller-manager
   namespace: diplomat
 spec:
@@ -423,11 +445,13 @@ spec:
     matchLabels:
       app: raven-controller-manager
       control-plane: controller-manager
+      diplomat: diplomat
   template:
     metadata:
       labels:
         app: raven-controller-manager
         control-plane: controller-manager
+        diplomat: diplomat
     spec:
       affinity:
         nodeAffinity:
@@ -497,6 +521,8 @@ kind: MutatingWebhookConfiguration
 metadata:
   creationTimestamp: null
   name: diplomat-raven-mutating-webhook-configuration
+  labels:
+    diplomat: diplomat
 webhooks:
 - admissionReviewVersions:
   - v1
@@ -525,6 +551,8 @@ kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
   name: diplomat-raven-validating-webhook-configuration
+  labels:
+    diplomat: diplomat
 webhooks:
 - admissionReviewVersions:
   - v1

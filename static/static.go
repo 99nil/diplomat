@@ -24,3 +24,13 @@ const (
 // EmbedResource defines the resource directory
 //go:embed resource
 var EmbedResource embed.FS
+
+var (
+	// CoreCertScript defines the stream or cloudcore cert script
+	//go:embed resource/scripts/certgen.sh
+	CoreCertScript []byte
+
+	// AdmissionCertScript defines the admission cert script
+	//go:embed resource/scripts/gen-admission-secret.sh
+	AdmissionCertScript []byte
+)

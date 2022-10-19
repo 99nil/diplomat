@@ -3,11 +3,15 @@ kind: ServiceAccount
 metadata:
   name: raven-agent-account
   namespace: diplomat
+  labels:
+    diplomat: diplomat
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: raven-agent-role
+  labels:
+    diplomat: diplomat
 rules:
 - apiGroups:
   - raven.openyurt.io
@@ -24,6 +28,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: raven-agent-role-binding
+  labels:
+    diplomat: diplomat
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -40,17 +46,21 @@ kind: ConfigMap
 metadata:
   name: raven-agent-config
   namespace: diplomat
+  labels:
+    diplomat: diplomat
 ---
 apiVersion: v1
+kind: Secret
 data:
   vpn-connection-psk: |
     MDY0NjU0NTg4OGQwMmVkNzdiNThkMTJiNzI0NDMxMmY3OWYxMDY2Zjg5MWFmYWMzNWEwMW
     ExOWMwMjQ3MjcxOTFiNmEyY2U5MTJiMjkzYTIzZjQ5YjNjZGQ1YmQxYjU2NDJiMmYwZmI3
     OGU4MzIyYTFlNTE2OTNmOTZjOGZjODE=
-kind: Secret
 metadata:
   name: raven-agent-secret
   namespace: diplomat
+  labels:
+    diplomat: diplomat
 type: Opaque
 ---
 apiVersion: apps/v1
@@ -58,14 +68,18 @@ kind: DaemonSet
 metadata:
   name: raven-agent-edge-ds
   namespace: diplomat
+  labels:
+    diplomat: diplomat
 spec:
   selector:
     matchLabels:
       app: diplomat-raven-agent-edge
+      diplomat: diplomat
   template:
     metadata:
       labels:
         app: diplomat-raven-agent-edge
+        diplomat: diplomat
     spec:
       affinity:
         nodeAffinity:
@@ -121,14 +135,18 @@ kind: DaemonSet
 metadata:
   name: raven-agent-ds
   namespace: diplomat
+  labels:
+    diplomat: diplomat
 spec:
   selector:
     matchLabels:
       app: diplomat-raven-agent
+      diplomat: diplomat
   template:
     metadata:
       labels:
         app: diplomat-raven-agent
+        diplomat: diplomat
     spec:
       affinity:
         nodeAffinity:
