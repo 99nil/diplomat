@@ -9,15 +9,14 @@ readonly certPath=${CERT_PATH:-/etc/diplomat/certs}
 readonly subject=${SUBJECT:-/C=CN/ST=Zhejiang/L=Hangzhou/O=KubeEdge/CN=kubeedge.io/CN=127.0.0.1}
 
 genCA() {
-  #2
     local IPs=(${@:1})
     echo $IPs
     local subj=${subject}
-    if [ -n "$IPs" ]; then
-        for ip in ${IPs[*]}; do
-            subj="${subj}/CN=${ip}"
-        done
-    fi
+#    if [ -n "$IPs" ]; then
+#        for ip in ${IPs[*]}; do
+#            subj="${subj}/CN=${ip}"
+#        done
+#    fi
     echo ${subj}
     openssl genrsa -des3 -out ${caPath}/rootCA.key -passout pass:kubeedge.io 4096
     openssl req -x509 -new -nodes -key ${caPath}/rootCA.key -sha256 -days 3650 \
@@ -25,7 +24,6 @@ genCA() {
 }
 
 ensureCA() {
-  #1
     local serverIPs=$1
     echo $serverIPs
     if [ ! -e ${caPath}/rootCA.key ] || [ ! -e ${caPath}/rootCA.crt ]; then
@@ -43,21 +41,19 @@ ensureFolder() {
 }
 
 genCsr() {
-  #3
     local name=$1 IPs=(${@:2})
     local subj=${subject}
-    if [ -n "$IPs" ]; then
-        for ip in ${IPs[*]}; do
-            subj="${subj}/CN=${ip}"
-        done
-    fi
+#    if [ -n "$IPs" ]; then
+#        for ip in ${IPs[*]}; do
+#            subj="${subj}/CN=${ip}"
+#        done
+#    fi
     echo ${subj}
     openssl genrsa -out ${certPath}/${name}.key 2048
     openssl req -new -key ${certPath}/${name}.key -subj ${subj} -out ${certPath}/${name}.csr
 }
 
 genCert() {
-  #4
     local name=$1 IPs=(${@:2})
     echo "IPS: " $IPs
     if  [ -z "$IPs" ] ;then
@@ -66,11 +62,12 @@ genCert() {
     else
         index=1
         SUBJECTALTNAME="subjectAltName = IP.1:127.0.0.1"
-        for ip in ${IPs[*]}; do
-            SUBJECTALTNAME="${SUBJECTALTNAME},"
-            index=$(($index+1))
-            SUBJECTALTNAME="${SUBJECTALTNAME}IP.${index}:${ip}"
-        done
+        # TODO err unable to ParsePKCS1PrivateKey: asn1: structure error: length too large
+#        for ip in ${IPs[*]}; do
+#            SUBJECTALTNAME="${SUBJECTALTNAME},"
+#            index=$(($index+1))
+#            SUBJECTALTNAME="${SUBJECTALTNAME}IP.${index}:${ip}"
+#        done
         echo $SUBJECTALTNAME > /tmp/server-extfile.cnf
         openssl x509 -req -in ${certPath}/${name}.csr -CA ${caPath}/rootCA.crt -CAkey ${caPath}/rootCA.key \
         -CAcreateserial -passin pass:kubeedge.io -out ${certPath}/${name}.crt -days 365 -sha256 -extfile /tmp/server-extfile.cnf

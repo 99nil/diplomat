@@ -27,9 +27,13 @@ const (
 var EmbedResource embed.FS
 
 var (
-	// CoreCertScript defines the stream or cloudcore cert script
-	//go:embed resource/scripts/certgen.sh
+	// CoreCertScript defines the cloudcore cert script
+	//go:embed resource/scripts/gen-cloudcore-secret.sh
 	CoreCertScript []byte
+
+	// StreamCertScript defines the stream or cloudcore cert script
+	//go:embed resource/scripts/gen-stream-secret.sh
+	StreamCertScript []byte
 
 	// AdmissionCertScript defines the admission cert script
 	//go:embed resource/scripts/gen-admission-secret.sh

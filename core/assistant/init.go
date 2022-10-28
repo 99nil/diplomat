@@ -193,16 +193,20 @@ func GenerateCerts(opt *common.InitOption) aide.StepFunc {
 		sc.Log("Generate admission certificate successful")
 
 		// cloudcore cert
-		targetPath = filepath.Join(constants.RootDir, "certgen.sh")
+		targetPath = filepath.Join(constants.RootDir, "gen-cloudcore-secret.sh")
 		if err := os.WriteFile(targetPath, static.CoreCertScript, os.ModePerm); err != nil {
 			sc.Errorf("Generate cloudcore certificate script failed: %v", err)
 		}
-		if err := sc.Shell(fmt.Sprintf("%s buildCloudcoreSecret -i %s", targetPath, opt.AdvertiseAddress)); err != nil {
+		if err := sc.Shell(fmt.Sprintf("IP=%s %s", opt.AdvertiseAddress, targetPath)); err != nil {
 			sc.Errorf("Generate cloudcore certificate failed: %v", err)
 		}
 		sc.Log("Generate cloudcore certificate successful")
 
 		// cloud stream cert
+		targetPath = filepath.Join(constants.RootDir, "gen-stream-secret.sh")
+		if err := os.WriteFile(targetPath, static.StreamCertScript, os.ModePerm); err != nil {
+			sc.Errorf("Generate cloudcore stream certificate script failed: %v", err)
+		}
 		advAddr := strings.Join(strings.Split(opt.AdvertiseAddress, ","), " ")
 		var domain string
 		cmd := fmt.Sprintf(
