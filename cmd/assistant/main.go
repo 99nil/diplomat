@@ -18,10 +18,19 @@ import (
 	"os"
 	_ "time/tzdata"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/99nil/diplomat/cmd/app"
 )
 
 func main() {
+	logrus.SetFormatter(&logrus.TextFormatter{
+		ForceColors:            true,
+		DisableLevelTruncation: true,
+		PadLevelText:           true,
+		FullTimestamp:          true,
+		TimestampFormat:        "2006/01/02 15:04:05",
+	})
 	if err := app.NewAssistant().Execute(); err != nil {
 		os.Exit(1)
 	}

@@ -12,26 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package static
+package app
 
-import "embed"
+import (
+	"fmt"
 
-const (
-	RavenYaml    = "resource/yaml/02-raven"
-	KubeEdgeYaml = "resource/yaml/01-kubeedge"
-	FlannelBin   = "resource/binary/flannel"
+	"github.com/99nil/diplomat/pkg/common"
+	"github.com/99nil/diplomat/pkg/version"
+
+	"github.com/spf13/cobra"
 )
 
-// EmbedResource defines the resource directory
-//go:embed resource
-var EmbedResource embed.FS
-
-var (
-	// CoreCertScript defines the stream or cloudcore cert script
-	//go:embed resource/scripts/certgen.sh
-	CoreCertScript []byte
-
-	// AdmissionCertScript defines the admission cert script
-	//go:embed resource/scripts/gen-admission-secret.sh
-	AdmissionCertScript []byte
-)
+func NewVersionCommand(globalOpt *common.GlobalOption) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "version",
+		Short:        "diplomat assistant version",
+		SilenceUsage: true,
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(version.Get())
+		},
+	}
+	return cmd
+}

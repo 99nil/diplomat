@@ -4,7 +4,7 @@ metadata:
   name: cloudcore
   namespace: kubeedge
   labels:
-    k8s-app: kubeedge
+    app: diplomat-kubeedge
     kubeedge: cloudcore
     diplomat: diplomat
 data:
@@ -17,13 +17,14 @@ data:
     modules:
       cloudHub:
         advertiseAddress:
-          - <advertiseAddress>
+          - ""
         dnsNames:
-          -
+          - ""
         nodeLimit: 1000
-        tlsCAFile: /etc/kubeedge/ca/rootCA.crt
-        tlsCertFile: /etc/kubeedge/certs/edge.crt
-        tlsPrivateKeyFile: /etc/kubeedge/certs/edge.key
+        tlsCAFile: /etc/kubeedge/tunnel/ca/rootCA.crt
+        tlsCAKeyFile: /etc/kubeedge/tunnel/ca/rootCA.key
+        tlsCertFile: /etc/kubeedge/tunnel/certs/edge.crt
+        tlsPrivateKeyFile: /etc/kubeedge/tunnel/certs/edge.key
         unixsocket:
           address: unix:///var/lib/kubeedge/kubeedge.sock
           enable: true
@@ -44,6 +45,12 @@ data:
         enable: true
         streamPort: 10003
         tunnelPort: 10004
+        tlsTunnelCAFile: /etc/kubeedge/tunnel/ca/rootCA.crt
+        tlsTunnelCertFile: /etc/kubeedge/tunnel/certs/edge.crt
+        tlsTunnelPrivateKeyFile: /etc/kubeedge/tunnel/certs/edge.key
+        tlsStreamCAFile: /etc/kubeedge/stream/ca/streamCA.crt
+        tlsStreamCertFile: /etc/kubeedge/stream/certs/stream.crt
+        tlsStreamPrivateKeyFile: /etc/kubeedge/stream/certs/stream.key
       dynamicController:
         enable: true
       router:

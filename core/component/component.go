@@ -17,6 +17,7 @@ package component
 import "context"
 
 type Interface interface {
+	PreInstall(ctx context.Context) error
 	Install(ctx context.Context) error
 	Uninstall(ctx context.Context) error
 }

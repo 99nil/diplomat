@@ -17,6 +17,8 @@ package util
 import (
 	"fmt"
 	"os"
+
+	"sigs.k8s.io/yaml"
 )
 
 func Exists(path string) bool {
@@ -53,4 +55,14 @@ func IsDir(path string) bool {
 
 func IsFile(path string) bool {
 	return !IsDir(path)
+}
+
+//Write2File writes data into a file in path
+func Write2File(path string, data interface{}) error {
+	d, err := yaml.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, d, 0666)
 }

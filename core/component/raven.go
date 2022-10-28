@@ -20,36 +20,27 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 
-	coreV1 "k8s.io/api/core/v1"
-
-	"github.com/99nil/diplomat/static"
-
-	"github.com/99nil/diplomat/pkg/util"
-
-	"github.com/99nil/diplomat/pkg/exec"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
-	"golang.org/x/sync/errgroup"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/client-go/restmapper"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"github.com/AlecAivazis/survey/v2"
-
-	"github.com/sirupsen/logrus"
-
 	"github.com/99nil/diplomat/global/constants"
+	"github.com/99nil/diplomat/pkg/common"
+	"github.com/99nil/diplomat/pkg/exec"
+	"github.com/99nil/diplomat/pkg/util"
+	"github.com/99nil/diplomat/static"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
+	coreV1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/restmapper"
 )
 
 var (
@@ -67,52 +58,46 @@ type RavenInstallTool struct {
 	Ctx context.Context
 
 	Resources     [][]unstructured.Unstructured
-	KubeClient    kubernetes.Clientset
+	KubeClient    kubernetes.Interface
 	DynamicClient dynamic.Interface
 }
 
 // PreInstall check whether the environment meets installation requirements.
-func (t *RavenInstallTool) PreInstall() (bool, error) {
-	// network plugins
-	np, err := t.check(cptFlannel)
-	if err != nil {
-		return false, err
+func (t *RavenInstallTool) PreInstall(ctx context.Context) error {
+	// check ns
+	if _, err := t.KubeClient.CoreV1().Namespaces().
+		Get(t.Ctx, constants.DefaultNamespace, metaV1.GetOptions{}); err != nil {
+		if apierrors.IsNotFound(err) {
+			if _, err = t.KubeClient.CoreV1().Namespaces().
+				Create(
+					t.Ctx,
+					&coreV1.Namespace{
+						ObjectMeta: metaV1.ObjectMeta{
+							Name: constants.DefaultNamespace,
+						},
+					},
+					metaV1.CreateOptions{}); err != nil {
+				return err
+			}
+			return nil
+		}
+		return err
 	}
-	if !np {
-		return np, nil
+
+	// network plugins
+	if err := t.check(cptFlannel); err != nil {
+		return err
 	}
 
 	// raven
-	rc, err := t.check(cptRaven)
-	if err != nil {
-		return false, err
-	}
-	if !rc {
-		return rc, nil
+	if err := t.check(cptRaven); err != nil {
+		return err
 	}
 
-	// check ns
-	if _, err = t.KubeClient.CoreV1().Namespaces().
-		Get(t.Ctx, constants.DefaultNamespace, metaV1.GetOptions{}); err != nil {
-		if apierrors.IsNotFound(err) {
-			if _, err = t.KubeClient.CoreV1().Namespaces().Create(t.Ctx,
-				&coreV1.Namespace{
-					ObjectMeta: metaV1.ObjectMeta{
-						Name: constants.DefaultNamespace,
-					},
-				},
-				metaV1.CreateOptions{}); err != nil {
-				return false, err
-			}
-			return true, nil
-		}
-		return false, err
-	}
-
-	return true, nil
+	return nil
 }
 
-func (t *RavenInstallTool) Install() error {
+func (t *RavenInstallTool) Install(ctx context.Context) error {
 	// apply yaml
 	gr, err := restmapper.GetAPIGroupResources(t.KubeClient.Discovery())
 	if err != nil {
@@ -120,6 +105,7 @@ func (t *RavenInstallTool) Install() error {
 	}
 	mapping := restmapper.NewDiscoveryRESTMapper(gr)
 
+	// The KubeEdge permissions required by the Raven component had been applied
 	for _, resources := range t.Resources {
 		wg, ctx := errgroup.WithContext(t.Ctx)
 		for _, obj := range resources {
@@ -143,15 +129,13 @@ func (t *RavenInstallTool) Install() error {
 					resourceInter = t.DynamicClient.Resource(restMapping.Resource)
 				}
 
-				return applyResource(ctx, resourceInter, currentObj)
+				return common.ApplyResource(ctx, resourceInter, currentObj)
 			})
 		}
 		if err = wg.Wait(); err != nil {
 			return fmt.Errorf("[raven install] apply resource failed: %v", err)
 		}
 	}
-
-	// TODO kubeedge config
 
 	// install custom specified architecture binary 'host-local'
 	if err = util.ExistsAndCreateDir(constants.CNIBinPath); err != nil {
@@ -170,7 +154,7 @@ func (t *RavenInstallTool) Install() error {
 	}
 
 	fileHostPath := "/tmp/diplomat/" + fileName
-	if err = util.ExistsAndCreateDir(fileHostPath); err != nil {
+	if err = util.ExistsAndCreateDir("/tmp/diplomat/"); err != nil {
 		return fmt.Errorf("[raven install] create dir failed, err: %v", err)
 	}
 	if err = os.WriteFile(fileHostPath, readFile, 0666); err != nil {
@@ -185,7 +169,7 @@ func (t *RavenInstallTool) Install() error {
 	return nil
 }
 
-func (t *RavenInstallTool) Remove() error {
+func (t *RavenInstallTool) Uninstall(ctx context.Context) error {
 	rq, err := labels.NewRequirement("app", selection.In, cptName)
 	if err != nil {
 		return err
@@ -205,14 +189,14 @@ func (t *RavenInstallTool) Rollback() error {
 	return nil
 }
 
-func (t *RavenInstallTool) check(label []string) (bool, error) {
+func (t *RavenInstallTool) check(label []string) error {
 	if len(label) == 0 {
-		return false, errors.New("label must not be null")
+		return errors.New("label must not be null")
 	}
 
 	rq, err := labels.NewRequirement("app", selection.In, label)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	list, err := t.KubeClient.
@@ -222,7 +206,7 @@ func (t *RavenInstallTool) check(label []string) (bool, error) {
 			LabelSelector: labels.NewSelector().Add(*rq).String(),
 		})
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	if len(list.Items) > 0 {
@@ -231,41 +215,13 @@ func (t *RavenInstallTool) check(label []string) (bool, error) {
 			Message: fmt.Sprintf("Found %s, will be replaced by diplomat custom version. Confirm?", strings.Join(label, ",")),
 		}
 		if err := survey.AskOne(prompt, &b); err != nil {
-			return false, err
+			return err
 		}
 		if !b {
 			logrus.Infof("exit Raven pre install check, confirm exit %s.\n", strings.Join(label, ","))
-			return false, nil
+			return fmt.Errorf("user cofirm exit")
 		}
 	}
 
-	return true, nil
-}
-
-func applyResource(
-	ctx context.Context,
-	resourceInter dynamic.ResourceInterface,
-	obj *unstructured.Unstructured,
-) error {
-	current, err := resourceInter.Get(ctx, obj.GetName(), metaV1.GetOptions{
-		TypeMeta: metaV1.TypeMeta{
-			Kind:       obj.GetKind(),
-			APIVersion: obj.GetAPIVersion(),
-		},
-	})
-	if err == nil {
-		rv, _ := strconv.ParseInt(current.GetResourceVersion(), 10, 64)
-		obj.SetResourceVersion(strconv.FormatInt(rv, 10))
-		if _, err = resourceInter.Update(ctx, obj, metaV1.UpdateOptions{}); err != nil {
-			err = fmt.Errorf("update %s %s failed: %v", obj.GetKind(), obj.GetName(), err)
-		}
-		return err
-	}
-	if !apierrors.IsNotFound(err) {
-		return err
-	}
-	if _, err = resourceInter.Create(ctx, obj, metaV1.CreateOptions{}); err != nil {
-		err = fmt.Errorf("create %s %s failed: %v", obj.GetKind(), obj.GetName(), err)
-	}
-	return err
+	return nil
 }

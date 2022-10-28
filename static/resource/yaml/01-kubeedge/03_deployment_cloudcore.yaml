@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    k8s-app: kubeedge
+    app: diplomat-kubeedge
     kubeedge: cloudcore
     diplomat: diplomat
   name: cloudcore
@@ -11,13 +11,13 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      k8s-app: kubeedge
+      app: diplomat-kubeedge
       kubeedge: cloudcore
       diplomat: diplomat
   template:
     metadata:
       labels:
-        k8s-app: kubeedge
+        app: diplomat-kubeedge
         kubeedge: cloudcore
         diplomat: diplomat
     spec:
@@ -29,9 +29,11 @@ spec:
                   - key: node-role.kubernetes.io/edge
                     operator: DoesNotExist
       containers:
+        # TODO
         - image: a526102465/cloudcore:v1.11.2-diplomat
           imagePullPolicy: IfNotPresent
           name: cloudcore
+          command: [ "/work/cloudcore" ]
           ports:
             - containerPort: 10000
               hostPort: 10000
@@ -65,8 +67,10 @@ spec:
           volumeMounts:
             - mountPath: /etc/kubeedge/config
               name: conf
-            - mountPath: /etc/kubeedge
-              name: certs
+            - mountPath: /etc/kubeedge/tunnel
+              name: tunnel-certs
+            - mountPath: /etc/kubeedge/stream
+              name: stream-certs
             - mountPath: /var/lib/kubeedge
               name: sock
             - mountPath: /etc/localtime
@@ -82,7 +86,7 @@ spec:
             defaultMode: 420
             name: cloudcore
           name: conf
-        - name: certs
+        - name: stream-certs
           secret:
             defaultMode: 420
             items:
@@ -92,9 +96,22 @@ spec:
                 path: certs/stream.key
               - key: streamCA.crt
                 path: ca/streamCA.crt
+            secretName: cloudcore-stream
+        - name: tunnel-certs
+          secret:
+            defaultMode: 420
+            items:
+              - key: edge.crt
+                path: certs/edge.crt
+              - key: edge.key
+                path: certs/edge.key
+              - key: rootCA.crt
+                path: ca/rootCA.crt
+              - key: rootCA.key
+                path: ca/rootCA.key
             secretName: cloudcore
         - hostPath:
-            path: /var/lib/kubeedge
+            path: /var/lib/diplomat
             type: DirectoryOrCreate
           name: sock
         - hostPath:

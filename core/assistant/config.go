@@ -18,6 +18,7 @@ import (
 	"github.com/99nil/diplomat/pkg/k8s"
 	"github.com/99nil/diplomat/pkg/logr"
 	"github.com/spf13/viper"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const (
@@ -37,6 +38,9 @@ type Config struct {
 	Kubernetes *k8s.Config `json:"kubernetes,omitempty"`
 	Logger     logr.Config `json:"logger,omitempty"`
 	Part       string      `json:"part"`
+	// TODO 优化，避免多个组件yaml导致添加更多的字段
+	KubeEdgeResources [][]unstructured.Unstructured
+	RavenResources    [][]unstructured.Unstructured
 }
 
 func (c *Config) Complete() {

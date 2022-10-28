@@ -9,3 +9,5 @@ server:
   host: http://localhost:3000
 agent:
   name: node-70-35
+assistant:
+  part: a

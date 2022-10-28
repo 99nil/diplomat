@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: admission
   labels:
-    k8s-app: kubeedge
+    app: diplomat-admission
     kubeedge: admission
     diplomat: diplomat
 rules:
@@ -36,7 +36,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: admission-role
   labels:
-    k8s-app: kubeedge
+    app: diplomat-admission
     kubeedge: admission
     diplomat: diplomat
 subjects:
@@ -54,7 +54,7 @@ metadata:
   name: admission
   namespace: kubeedge
   labels:
-    k8s-app: kubeedge
+    app: diplomat-admission
     kubeedge: admission
     diplomat: diplomat
 ---
@@ -62,16 +62,17 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    k8s-app: kubeedge
+    app: diplomat-admission
     kubeedge: admission
     diplomat: diplomat
-  name: diplomat-admission
+  name: admission
   namespace: kubeedge
 spec:
   ports:
     - name: admission
       port: 443
   selector:
+    app: diplomat-admission
     kubeedge: admission
     diplomat: diplomat
   type: ClusterIP
@@ -80,19 +81,21 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    k8s-app: kubeedge
+    app: diplomat-admission
     kubeedge: admission
     diplomat: diplomat
-  name: diplomat-admission
+  name: admission
   namespace: kubeedge
 spec:
   selector:
     matchLabels:
+      app: diplomat-admission
       kubeedge: admission
       diplomat: diplomat
   template:
     metadata:
       labels:
+        app: diplomat-admission
         kubeedge: admission
         diplomat: diplomat
     spec:
@@ -106,9 +109,12 @@ spec:
                   - key: node-role.kubernetes.io/edge
                     operator: DoesNotExist
       containers:
-        - image: a526102465/admission:v0.0.1-diplomat
+        # TODO
+        - image: a526102465/admission:v1.11.2-diplomat
           imagePullPolicy: IfNotPresent
           name: admission
+          command: [ "/work/admission" ]
+          args: [ "--ca-cert-file", "/work/certs/ca.crt", "--tls-cert-file","/work/certs/server.crt","--tls-private-key-file","/work/certs/server.key" ]
           ports:
             - containerPort: 443
               protocol: TCP
@@ -120,4 +126,4 @@ spec:
         - name: admission-certs
           secret:
             defaultMode: 420
-            secretName: diplomat-admission-secret
+            secretName: admission-secret

@@ -3,9 +3,9 @@
 set -e
 
 NAMESPACE=${NAMESPACE:-kubeedge}
-SERVICE=${SERVICE:-"diplomat-admission"}
-SECRET=${SECRET:-"diplomat-admission-secret"}
-CERTDIR=${CERTDIR:-"/etc/kubeedge/admission-certs"}
+SERVICE=${SERVICE:-"admission"}
+SECRET=${SECRET:-"admission-secret"}
+CERTDIR=${CERTDIR:-"/etc/diplomat/admission-certs"}
 ENABLE_CREATE_SECRET=${ENABLE_CREATE_SECRET:-true}
 CN=${CN:-"${SERVICE}.${NAMESPACE}.svc"}
 IP=${IP:-"127.0.0.1"}

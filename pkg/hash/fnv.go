@@ -12,26 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package static
+package hash
 
-import "embed"
-
-const (
-	RavenYaml    = "resource/yaml/02-raven"
-	KubeEdgeYaml = "resource/yaml/01-kubeedge"
-	FlannelBin   = "resource/binary/flannel"
+import (
+	"fmt"
+	"hash/fnv"
+	"strconv"
 )
 
-// EmbedResource defines the resource directory
-//go:embed resource
-var EmbedResource embed.FS
+const alphaNums = "bcdfghjklmnpqrstvwxz2456789"
 
-var (
-	// CoreCertScript defines the stream or cloudcore cert script
-	//go:embed resource/scripts/certgen.sh
-	CoreCertScript []byte
+func SafeEncodeString(s string) string {
+	r := make([]byte, len(s))
+	for i, b := range []rune(s) {
+		r[i] = alphaNums[(int(b) % len(alphaNums))]
+	}
+	return string(r)
+}
 
-	// AdmissionCertScript defines the admission cert script
-	//go:embed resource/scripts/gen-admission-secret.sh
-	AdmissionCertScript []byte
-)
+func ComputeHash(data interface{}) string {
+	h := fnv.New32a()
+	fmt.Fprintf(h, "%#v", data)
+	return SafeEncodeString(strconv.FormatUint(uint64(h.Sum32()), 10))
+}
+
+func BuildNodeName(namespace, name string) string {
+	return name + "-" + ComputeHash(namespace)
+}
