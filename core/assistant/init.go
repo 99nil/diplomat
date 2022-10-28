@@ -363,6 +363,7 @@ func applyConfigMap(
 	return common.ApplyResource(ctx, resourceInter, obj)
 }
 
+//nolint
 func setCurrentToMap(data map[string]interface{}, current map[string]interface{}, keys ...string) {
 	for _, k := range keys {
 		if v, ok := current[k]; ok {
@@ -540,6 +541,7 @@ func applyDaemonSet(
 			}
 		}
 		currentContainer.Image = container.Image
+		currentContainer.Env = envs
 		current.Spec.Template.Spec.Containers[0] = currentContainer
 		ds = *current
 	}

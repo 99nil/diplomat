@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: alpine-test
+spec:
+  containers:
+    - name: alpine-curl
+      image: a526102465/alpine-curl:v0.1-diplomat
+      imagePullPolicy: IfNotPresent
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/edge
+                operator: DoesNotExist
+              - key: node-role.kubernetes.io/agent
+                operator: DoesNotExist
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: websocket-test
+spec:
+  containers:
+    - name: websocket
+      image: a526102465/websocket_echo:v0.1-diplomat
+      imagePullPolicy: IfNotPresent
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/edge
+                operator: DoesNotExist
+              - key: node-role.kubernetes.io/agent
+                operator: DoesNotExist

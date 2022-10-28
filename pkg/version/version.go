@@ -36,8 +36,8 @@ type Version struct {
 	Platform         string
 }
 
-func Get() Version {
-	return Version{
+func Get() *Version {
+	return &Version{
 		Version:          ver,
 		AssistantVersion: assistantVer,
 		KubeedgeVersion:  kubeedgeVer,
@@ -48,7 +48,7 @@ func Get() Version {
 	}
 }
 
-func (v Version) String() string {
+func (v *Version) String() string {
 	return fmt.Sprintf(`version: %s
 assistant: %s
 kubeedge: %s
@@ -67,7 +67,7 @@ platform: %s
 	)
 }
 
-func (v Version) EdgeString() string {
+func (v *Version) EdgeString() string {
 	if v.Version == "" {
 		v.Version = "dev"
 	}

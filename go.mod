@@ -8,6 +8,7 @@ require (
 	github.com/99nil/dsync v0.0.0-00010101000000-000000000000
 	github.com/99nil/gopkg v0.0.0-20220607055250-e19b23d7661a
 	github.com/AlecAivazis/survey/v2 v2.3.6
+	github.com/docker/docker v20.10.12+incompatible
 	github.com/go-chi/chi v1.5.4
 	github.com/kubeedge/kubeedge v1.11.2
 	github.com/natefinch/lumberjack v2.0.0+incompatible
@@ -38,7 +39,6 @@ require (
 	github.com/dgraph-io/badger/v3 v3.2103.2 // indirect
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
 	github.com/docker/distribution v2.8.1+incompatible // indirect
-	github.com/docker/docker v20.10.12+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
