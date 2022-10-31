@@ -12,12 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package component
+package app
 
-import "context"
+import (
+	"fmt"
 
-type Interface interface {
-	PreInstall(ctx context.Context) error
-	Install(ctx context.Context) error
-	Uninstall(ctx context.Context) error
+	"github.com/99nil/diplomat/pkg/common"
+	"github.com/99nil/diplomat/pkg/version"
+
+	"github.com/spf13/cobra"
+)
+
+func NewVersionCommand(globalOpt *common.GlobalOption) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "version",
+		Short:        "diplomat assistant version",
+		SilenceUsage: true,
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(version.Get())
+		},
+	}
+	return cmd
 }

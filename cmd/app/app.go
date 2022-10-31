@@ -17,7 +17,8 @@ package app
 import (
 	"fmt"
 
-	"github.com/99nil/diplomat/core/assistant"
+	"github.com/99nil/diplomat/pkg/common"
+
 	mgtAgent "github.com/99nil/diplomat/core/mgt/agent"
 	mgtServer "github.com/99nil/diplomat/core/mgt/server"
 	"github.com/99nil/diplomat/pkg/k8s"
@@ -25,7 +26,6 @@ import (
 	"github.com/99nil/gopkg/ctr"
 	"github.com/99nil/gopkg/server"
 
-	"github.com/docker/docker/client"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -33,43 +33,34 @@ import (
 )
 
 func NewAssistant() *cobra.Command {
+	// TODO 二进制安装待测试
 	use := "assistant"
-	opt := NewOption(use)
+	opt := common.NewGlobalOption(use)
 	cmd := &cobra.Command{
-		Use:          opt.Module,
-		Short:        "Assistant",
-		SilenceUsage: true,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			cfg := assistant.Environ(opt.EnvPrefix)
-			if err := server.ParseConfigWithEnv(opt.Config, cfg, opt.EnvPrefix); err != nil {
-				return fmt.Errorf("parse config failed: %v", err)
-			}
-			cfg.Complete()
-			if err := cfg.Validate(); err != nil {
-				return fmt.Errorf("validate config failed: %v", err)
-			}
-			loggerIns := logr.NewLogrusInstance(&cfg.Logger)
-			logr.SetDefault(loggerIns)
-
-			logr.Infof("logger level: %v", logr.Level())
-			logr.Debugf("%#v", cfg)
-
-			dockerClient, err := client.NewClientWithOpts(client.FromEnv)
-			if err != nil {
-				return err
-			}
-
-			return assistant.Run(cfg, dockerClient)
-		},
+		Use:   opt.Module,
+		Short: "Assistant",
 	}
+	cmd.AddCommand(
+		NewAssistantInitCommand(opt),
+		NewAssistantJoinCommand(opt),
+		// TODO 优化，合并reset
+		NewAssistantCloudResetCommand(opt),
+		NewAssistantEdgeResetCommand(opt),
+		NewAssistantGetTokenCommand(opt),
+		NewVersionCommand(opt),
+	)
 
 	opt.CompleteFlags(cmd)
+	cmd.PersistentFlags().StringVar(&opt.KubeConfig, "kubeconfig", "/root/.kube/config",
+		"Use this key to set the Kubernetes config path")
+	cmd.PersistentFlags().BoolVarP(&opt.Verbose, "verbose", "v", true,
+		"verbose output")
 	return cmd
 }
 
 func NewMgtServer() *cobra.Command {
 	use := "mgt-server"
-	opt := NewOption(use)
+	opt := common.NewGlobalOption(use)
 	cmd := &cobra.Command{
 		Use:          opt.Module,
 		Short:        "Management Server",
@@ -113,7 +104,7 @@ func NewMgtServer() *cobra.Command {
 
 func NewMgtAgent() *cobra.Command {
 	use := "mgt-agent"
-	opt := NewOption(use)
+	opt := common.NewGlobalOption(use)
 	cmd := &cobra.Command{
 		Use:          opt.Module,
 		Short:        "Management Agent",

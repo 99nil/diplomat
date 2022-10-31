@@ -12,12 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package component
-
-import "context"
-
-type Interface interface {
-	PreInstall(ctx context.Context) error
-	Install(ctx context.Context) error
-	Uninstall(ctx context.Context) error
-}
+package app

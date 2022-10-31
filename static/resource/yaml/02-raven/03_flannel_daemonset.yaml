@@ -1,0 +1,203 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: flannel-ds
+  namespace: diplomat
+  labels:
+    app: diplomat-flannel
+    diplomat: diplomat
+spec:
+  selector:
+    matchLabels:
+      app: diplomat-flannel
+      diplomat: diplomat
+  template:
+    metadata:
+      labels:
+        app: diplomat-flannel
+        diplomat: diplomat
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                - linux
+              - key: node-role.kubernetes.io/edge
+                operator: DoesNotExist
+              - key: node-role.kubernetes.io/agent
+                operator: DoesNotExist
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      priorityClassName: system-node-critical
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      serviceAccountName: flannel
+      initContainers:
+      - name: install-cni
+        # TODO
+        image: a526102465/flannel:v0.14.0-diplomat
+        command:
+        - cp
+        args:
+        - -f
+        - /etc/kube-flannel/cni-conf.json
+        - /etc/cni/net.d/10-flannel.conflist
+        volumeMounts:
+        - name: cni
+          mountPath: /etc/cni/net.d
+        - name: flannel-cfg
+          mountPath: /etc/kube-flannel/
+      containers:
+      - name: diplomat-flannel
+        # TODO
+        image: a526102465/flannel:v0.14.0-diplomat
+        command:
+        - /opt/bin/flanneld
+        args:
+        - --ip-masq
+        - --kube-subnet-mgr
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "50Mi"
+          limits:
+            cpu: "100m"
+            memory: "50Mi"
+        securityContext:
+          privileged: false
+          capabilities:
+            add: ["NET_ADMIN", "NET_RAW"]
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: run
+          mountPath: /run/flannel
+        - name: flannel-cfg
+          mountPath: /etc/kube-flannel/
+      volumes:
+      - name: run
+        hostPath:
+          path: /run/flannel
+      - name: cni
+        hostPath:
+          path: /etc/cni/net.d
+      - name: flannel-cfg
+        configMap:
+          name: flannel-cfg
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: flannel-edge-ds
+  namespace: diplomat
+  labels:
+    app: diplomat-flannel
+    diplomat: diplomat
+spec:
+  selector:
+    matchLabels:
+      app: diplomat-flannel
+      diplomat: diplomat
+  template:
+    metadata:
+      labels:
+        app: diplomat-flannel
+        diplomat: diplomat
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+                  - key: node-role.kubernetes.io/edge
+                    operator: Exists
+                  - key: node-role.kubernetes.io/agent
+                    operator: Exists
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      priorityClassName: system-node-critical
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+      serviceAccountName: flannel
+      initContainers:
+        - name: install-cni
+          # TODO
+          image: a526102465/flannel:v0.14.0-diplomat
+          command:
+            - cp
+          args:
+            - -f
+            - /etc/kube-flannel/cni-conf.json
+            - /etc/cni/net.d/10-flannel.conflist
+          volumeMounts:
+            - name: cni
+              mountPath: /etc/cni/net.d
+            - name: flannel-cfg
+              mountPath: /etc/kube-flannel/
+      containers:
+        - name: diplomat-flannel
+          # TODO
+          image: a526102465/flannel:v0.14.0-diplomat
+          command:
+            - /opt/bin/flanneld
+          args:
+            - --ip-masq
+            - --kube-subnet-mgr
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "50Mi"
+            limits:
+              cpu: "100m"
+              memory: "50Mi"
+          securityContext:
+            privileged: false
+            capabilities:
+              add: ["NET_ADMIN", "NET_RAW"]
+          env:
+            - name: KUBERNETES_SERVICE_HOST
+              value: 127.0.0.1
+            - name: KUBERNETES_SERVICE_PORT
+              value: "10550"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - name: run
+              mountPath: /run/flannel
+            - name: flannel-cfg
+              mountPath: /etc/kube-flannel/
+      volumes:
+        - name: run
+          hostPath:
+            path: /run/flannel
+        - name: cni
+          hostPath:
+            path: /etc/cni/net.d
+        - name: flannel-cfg
+          configMap:
+            name: flannel-cfg

@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: diplomat-kubeedge
+    kubeedge: cloudcore
+    diplomat: diplomat
+  name: cloudcore
+  namespace: kubeedge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: diplomat-kubeedge
+      kubeedge: cloudcore
+      diplomat: diplomat
+  template:
+    metadata:
+      labels:
+        app: diplomat-kubeedge
+        kubeedge: cloudcore
+        diplomat: diplomat
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/edge
+                    operator: DoesNotExist
+      containers:
+        # TODO
+        - image: a526102465/cloudcore:v1.11.2-diplomat
+          imagePullPolicy: IfNotPresent
+          name: cloudcore
+          command: [ "/work/cloudcore" ]
+          ports:
+            - containerPort: 10000
+              hostPort: 10000
+              name: cloudhub
+              protocol: TCP
+            - containerPort: 10001
+              hostPort: 10001
+              name: cloudhub-quic
+              protocol: TCP
+            - containerPort: 10002
+              hostPort: 10002
+              name: cloudhub-https
+              protocol: TCP
+            - containerPort: 10003
+              hostPort: 10003
+              name: cloudstream
+              protocol: TCP
+            - containerPort: 10004
+              hostPort: 10004
+              name: tunnelport
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 200m
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 512Mi
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /etc/kubeedge/config
+              name: conf
+            - mountPath: /etc/kubeedge/tunnel
+              name: tunnel-certs
+            - mountPath: /etc/kubeedge/stream
+              name: stream-certs
+            - mountPath: /var/lib/kubeedge
+              name: sock
+            - mountPath: /etc/localtime
+              name: host-time
+              readOnly: true
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      restartPolicy: Always
+      serviceAccount: cloudcore
+      serviceAccountName: cloudcore
+      volumes:
+        - configMap:
+            defaultMode: 420
+            name: cloudcore
+          name: conf
+        - name: stream-certs
+          secret:
+            defaultMode: 420
+            items:
+              - key: stream.crt
+                path: certs/stream.crt
+              - key: stream.key
+                path: certs/stream.key
+              - key: streamCA.crt
+                path: ca/streamCA.crt
+            secretName: cloudcore-stream
+        - name: tunnel-certs
+          secret:
+            defaultMode: 420
+            items:
+              - key: edge.crt
+                path: certs/edge.crt
+              - key: edge.key
+                path: certs/edge.key
+              - key: rootCA.crt
+                path: ca/rootCA.crt
+              - key: rootCA.key
+                path: ca/rootCA.key
+            secretName: cloudcore
+        - hostPath:
+            path: /var/lib/diplomat
+            type: DirectoryOrCreate
+          name: sock
+        - hostPath:
+            path: /etc/localtime
+            type: ""
+          name: host-time

@@ -15,7 +15,13 @@
 package util
 
 import (
+	"fmt"
+	"io/ioutil"
+	"net"
 	"strconv"
+
+	utilnet "k8s.io/apimachinery/pkg/util/net"
+	"sigs.k8s.io/yaml"
 )
 
 func ParseResourceVersion(resourceVersion string) uint64 {
@@ -38,4 +44,88 @@ func CompareResourceVersion(a, b string) int {
 		return -1
 	}
 	return +1
+}
+
+func WriteToFile(path string, data interface{}) error {
+	b, err := yaml.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, b, 0666)
+}
+
+func GetLocalIP(hostName string) (string, error) {
+	var ipAddr net.IP
+	var err error
+
+	// If looks up host failed, will use utilnet.ChooseHostInterface() below,
+	// So ignore the error here
+	addrs, _ := net.LookupIP(hostName)
+	for _, addr := range addrs {
+		if err := ValidateNodeIP(addr); err != nil {
+			continue
+		}
+		if addr.To4() != nil {
+			ipAddr = addr
+			break
+		}
+		if ipAddr == nil && addr.To16() != nil {
+			ipAddr = addr
+		}
+	}
+
+	if ipAddr == nil {
+		ipAddr, err = utilnet.ChooseHostInterface()
+		if err != nil {
+			return "", err
+		}
+	}
+	return ipAddr.String(), nil
+}
+
+// ValidateNodeIP validates given node IP belongs to the current host
+func ValidateNodeIP(nodeIP net.IP) error {
+	// Honor IP limitations set in setNodeStatus()
+	if nodeIP.To4() == nil && nodeIP.To16() == nil {
+		return fmt.Errorf("nodeIP must be a valid IP address")
+	}
+	if nodeIP.IsLoopback() {
+		return fmt.Errorf("nodeIP can't be loopback address")
+	}
+	if nodeIP.IsMulticast() {
+		return fmt.Errorf("nodeIP can't be a multicast address")
+	}
+	if nodeIP.IsLinkLocalUnicast() {
+		return fmt.Errorf("nodeIP can't be a link-local unicast address")
+	}
+	if nodeIP.IsUnspecified() {
+		return fmt.Errorf("nodeIP can't be an all zeros address")
+	}
+
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return err
+	}
+	for _, addr := range addrs {
+		var ip net.IP
+		switch v := addr.(type) {
+		case *net.IPNet:
+			ip = v.IP
+		case *net.IPAddr:
+			ip = v.IP
+		}
+		if ip != nil && ip.Equal(nodeIP) {
+			return nil
+		}
+	}
+	return fmt.Errorf("node IP: %q not found in the host's network interfaces", nodeIP.String())
+}
+
+func InStringSlice(ss []string, str string) (index int, exists bool) {
+	for k, v := range ss {
+		if str == v {
+			return k, true
+		}
+	}
+	return -1, false
 }

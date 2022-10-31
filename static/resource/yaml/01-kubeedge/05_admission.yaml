@@ -1,0 +1,129 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: admission
+  labels:
+    app: diplomat-admission
+    kubeedge: admission
+    diplomat: diplomat
+rules:
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"]
+    verbs: ["get", "list", "watch", "create", "update"]
+  # Rules below is used generate admission service secret
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["certificatesigningrequests"]
+    verbs: ["get", "list", "create", "delete"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["certificatesigningrequests/approval"]
+    verbs: ["create", "update"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "get", "patch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get"]
+  - apiGroups: ["devices.kubeedge.io"]
+    resources: ["devicemodels"]
+    verbs: ["get", "list"]
+  - apiGroups: ["rules.kubeedge.io"]
+    resources: ["rules", "ruleendpoints"]
+    verbs: ["get", "list"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: admission-role
+  labels:
+    app: diplomat-admission
+    kubeedge: admission
+    diplomat: diplomat
+subjects:
+  - kind: ServiceAccount
+    name: admission
+    namespace: kubeedge
+roleRef:
+  kind: ClusterRole
+  name: admission
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admission
+  namespace: kubeedge
+  labels:
+    app: diplomat-admission
+    kubeedge: admission
+    diplomat: diplomat
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: diplomat-admission
+    kubeedge: admission
+    diplomat: diplomat
+  name: admission
+  namespace: kubeedge
+spec:
+  ports:
+    - name: admission
+      port: 443
+  selector:
+    app: diplomat-admission
+    kubeedge: admission
+    diplomat: diplomat
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: diplomat-admission
+    kubeedge: admission
+    diplomat: diplomat
+  name: admission
+  namespace: kubeedge
+spec:
+  selector:
+    matchLabels:
+      app: diplomat-admission
+      kubeedge: admission
+      diplomat: diplomat
+  template:
+    metadata:
+      labels:
+        app: diplomat-admission
+        kubeedge: admission
+        diplomat: diplomat
+    spec:
+      serviceAccountName: admission
+      serviceAccount: admission
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/edge
+                    operator: DoesNotExist
+      containers:
+        # TODO
+        - image: a526102465/admission:v1.11.2-diplomat
+          imagePullPolicy: IfNotPresent
+          name: admission
+          command: [ "/work/admission" ]
+          args: [ "--ca-cert-file", "/work/certs/ca.crt", "--tls-cert-file","/work/certs/server.crt","--tls-private-key-file","/work/certs/server.key" ]
+          ports:
+            - containerPort: 443
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /work/certs
+              name: admission-certs
+              readOnly: true
+      volumes:
+        - name: admission-certs
+          secret:
+            defaultMode: 420
+            secretName: admission-secret

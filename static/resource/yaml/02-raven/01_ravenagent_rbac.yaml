@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: raven-agent-account
+  namespace: diplomat
+  labels:
+    diplomat: diplomat
+    app: diplomat-raven-agent
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: raven-agent-role
+  labels:
+    diplomat: diplomat
+    app: diplomat-raven-agent
+rules:
+  - apiGroups:
+      - raven.openyurt.io
+    resources:
+      - gateways
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: raven-agent-role-binding
+  labels:
+    diplomat: diplomat
+    app: diplomat-raven-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: raven-agent-role
+subjects:
+  - kind: ServiceAccount
+    name: raven-agent-account
+    namespace: diplomat

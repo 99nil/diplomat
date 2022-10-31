@@ -12,12 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package component
+package hash
 
-import "context"
+import (
+	"fmt"
+	"hash/fnv"
+	"strconv"
+)
 
-type Interface interface {
-	PreInstall(ctx context.Context) error
-	Install(ctx context.Context) error
-	Uninstall(ctx context.Context) error
+const alphaNums = "bcdfghjklmnpqrstvwxz2456789"
+
+func SafeEncodeString(s string) string {
+	r := make([]byte, len(s))
+	for i, b := range []rune(s) {
+		r[i] = alphaNums[(int(b) % len(alphaNums))]
+	}
+	return string(r)
+}
+
+func ComputeHash(data interface{}) string {
+	h := fnv.New32a()
+	fmt.Fprintf(h, "%#v", data)
+	return SafeEncodeString(strconv.FormatUint(uint64(h.Sum32()), 10))
+}
+
+func BuildNodeName(namespace, name string) string {
+	return name + "-" + ComputeHash(namespace)
 }
